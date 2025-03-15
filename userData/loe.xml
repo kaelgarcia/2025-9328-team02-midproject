@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<userProfile>
+    <username>loe</username>
+    <bookings>
+        <booking>
+            <machineType>laundry</machineType>
+            <date>March 3</date>
+            <time>10:30-11:30AM</time>
+        </booking>
+    </bookings>
+</userProfile>

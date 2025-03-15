@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<users>
+
+    <user>
+
+        <username>kael</username>
+
+        <password>123456</password>
+
+    </user>
+
+    <user>
+        <username>garcia</username>
+        <password>hello</password>
+    </user>
+    <user>
+        <username>xylo</username>
+        <password>12</password>
+    </user>
+    <user>
+        <username>121</username>
+        <password>121</password>
+    </user>
+    <user>
+        <username>kyle</username>
+        <password>qwerty</password>
+    </user>
+    <user>
+        <username>loe</username>
+        <password>12</password>
+    </user>
+</users>
