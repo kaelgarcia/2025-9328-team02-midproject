@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 import client.utility.ClientServerConnection;
 
-public class LaundryButtonActions {
+public class LaundryButtonActions { // implement remote access using RMI + JSON
     public void addTimeToSchedule(String time, File scheduleFile) {
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
@@ -128,7 +128,7 @@ public class LaundryButtonActions {
 
             ClientServerConnection client = ClientServerConnection.getInstance();
             client.requestToServer("ReceiveFile");
-            client.sendXMLFileToServer(scheduleFile.getAbsolutePath()); // must have method in server
+           // client.sendXMLFileToServer(scheduleFile.getAbsolutePath()); // must have method in server
         } catch (Exception e) {
             e.printStackTrace();
         }

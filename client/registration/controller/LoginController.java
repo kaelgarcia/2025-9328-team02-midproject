@@ -2,7 +2,7 @@ package client.registration.controller;
 
 import client.registration.model.LoginUser;
 import client.registration.view.ILoginView;
-
+import client.registration.view.RegistrationUIManager;
 
 public class LoginController {
     private ILoginView view;
@@ -15,7 +15,7 @@ public class LoginController {
 
             if (usernameInput.equals("exclusive_owner") && passwordInput.equals("OWNER")) {
                 view.showMessage("Welcome, Owner!");
-                openOwnerHomePanel();
+                RegistrationUIManager.openOwnerHomePanel(view);
             } else if (LoginUser.validateUserCredentials(usernameInput, passwordInput)) {
                 view.showMessage("Login successful!");
 
@@ -30,20 +30,12 @@ public class LoginController {
                     ex.printStackTrace();
                 }
 
-                openCustomerHomePage(usernameInput);
+                RegistrationUIManager.openCustomerHomePage(view, usernameInput);
             } else {
                 view.showMessage("Invalid username or password!");
             }
         });
         this.view.addRegisterListener(() -> openSignUpPanel());
-    }
-
-    private void openOwnerHomePanel() {
-        // Open owner home panel
-    }
-
-    private void openCustomerHomePage(String username) {
-        // Open customer home page
     }
 
     private void openSignUpPanel() {

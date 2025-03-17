@@ -1,11 +1,10 @@
 package client.owner.model;
 
-import client.owner.view.OwnerHomePanel;
-import client.owner.view.LaundryPanel;
-import client.owner.view.DryerPanel;
-import client.owner.controller.LaundryController;
 import client.owner.controller.DryerController;
-
+import client.owner.controller.LaundryController;
+import client.owner.view.DryerPanel;
+import client.owner.view.LaundryPanel;
+import client.owner.view.OwnerHomePanel;
 
 import javax.swing.*;
 import java.awt.*;
@@ -14,17 +13,16 @@ import java.io.File;
 public class OwnerHomeButtonPanel extends JPanel {
     private JButton laundryButton;
     private JButton dryerButton;
+    private JButton calendarButton; // New Calendar Button
     private JButton logoutButton;
-    private OwnerHomePanel ownerHomePanel;
-    private final File scheduleFile;
 
     private Runnable onLaundryClick;
     private Runnable onDryerClick;
+    private Runnable onCalendarClick; // New Event Handler
     private Runnable onLogoutClick;
+    private File scheduleFile;
 
-    public OwnerHomeButtonPanel(OwnerHomePanel ownerHomePanel) {
-        this.ownerHomePanel = ownerHomePanel;
-        this.scheduleFile = new File("schedule.xml");
+    public OwnerHomeButtonPanel(OwnerHomePanel ownerPanel) {
         this.setLayout(new FlowLayout());
         this.createButtons();
         this.layoutButtons();
@@ -34,12 +32,14 @@ public class OwnerHomeButtonPanel extends JPanel {
     private void createButtons() {
         this.laundryButton = new JButton("Laundry");
         this.dryerButton = new JButton("Dryer");
+        this.calendarButton = new JButton("Calendar"); // Initialize Calendar Button
         this.logoutButton = new JButton("Logout");
     }
 
     private void layoutButtons() {
         this.add(laundryButton);
         this.add(dryerButton);
+        this.add(calendarButton); // Add to Panel
         this.add(logoutButton);
     }
 
@@ -50,23 +50,29 @@ public class OwnerHomeButtonPanel extends JPanel {
         this.dryerButton.addActionListener(e -> {
             if (onDryerClick != null) onDryerClick.run();
         });
+        this.calendarButton.addActionListener(e -> { // Calendar Button Action
+            if (onCalendarClick != null) onCalendarClick.run();
+        });
         this.logoutButton.addActionListener(e -> {
             if (onLogoutClick != null) onLogoutClick.run();
         });
     }
 
-    public void setOnLaundryClick(Runnable onClick) {
-        this.onLaundryClick = onClick;
+    public void setOnLaundryClick(Runnable onLaundryClick) {
+        this.onLaundryClick = onLaundryClick;
     }
 
-    public void setOnDryerClick(Runnable onClick) {
-        this.onDryerClick = onClick;
+    public void setOnDryerClick(Runnable onDryerClick) {
+        this.onDryerClick = onDryerClick;
     }
 
-    public void setOnLogoutClick(Runnable onClick) {
-        this.onLogoutClick = onClick;
+    public void setOnCalendarClick(Runnable onCalendarClick) { // Setter for Calendar Click
+        this.onCalendarClick = onCalendarClick;
     }
 
+    public void setOnLogoutClick(Runnable onLogoutClick) {
+        this.onLogoutClick = onLogoutClick;
+    }
     public LaundryPanel createLaundryPanel() {
         LaundryPanel laundryPanel = new LaundryPanel();
         LaundryController laundryController = new LaundryController(laundryPanel, new LaundryButtonActions(), scheduleFile);
@@ -80,4 +86,5 @@ public class OwnerHomeButtonPanel extends JPanel {
         dryerPanel.setDryerController(dryerController);
         return dryerPanel;
     }
+
 }

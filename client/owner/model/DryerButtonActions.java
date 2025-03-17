@@ -13,7 +13,7 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
-public class DryerButtonActions {
+public class DryerButtonActions {  // implement remote access using RMI + JSON
     public void addTimeToSchedule(String time, File scheduleFile) {
         try {
             System.out.println("Attempting to add time: " + time);
@@ -142,7 +142,7 @@ public class DryerButtonActions {
 
             ClientServerConnection client = ClientServerConnection.getInstance();
             client.requestToServer("ReceiveFile");
-            client.sendXMLFileToServer(String.valueOf(scheduleFile)); // must have method in server
+            // client.sendXMLFileToServer(String.valueOf(scheduleFile)); // must have method in server
         } catch (Exception e) {
             e.printStackTrace();
         }
