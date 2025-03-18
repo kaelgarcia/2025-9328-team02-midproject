@@ -5,9 +5,9 @@ import client.customer.view.CustomerHomePage;
 import client.owner.controller.OwnerHomeController;
 import client.owner.model.OwnerHomeButtonPanel;
 import client.owner.view.OwnerHomePanel;
-
-import javax.swing.JFrame;
 import java.io.File;
+import javax.swing.JFrame;
+import javax.swing.JOptionPane;
 
 public class RegistrationUIManager {
 
@@ -30,7 +30,13 @@ public class RegistrationUIManager {
     public static void openCustomerHomePage(ILoginView loginView, String username) {
         String userFilePath = "userData/" + username + ".xml";
         loginView.setVisible(false);
-        CustomerHomePage homePage = new CustomerHomePage(username, new File(userFilePath));
+        File userFile = new File(userFilePath);
+        if (!userFile.exists()) {
+            JOptionPane.showMessageDialog(null, "User file not found: " + userFilePath, "Error", JOptionPane.ERROR_MESSAGE);
+            return; // Exit the method if the file does not exist
+        }
+        CustomerHomePage homePage = new CustomerHomePage(username, userFile);
+
         new CustomerHomeController(homePage, username, userFilePath);
         homePage.setVisible(true);
     }
