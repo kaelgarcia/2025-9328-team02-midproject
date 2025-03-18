@@ -5,9 +5,9 @@ import client.customer.view.CustomerHomePage;
 import client.owner.controller.OwnerHomeController;
 import client.owner.model.OwnerHomeButtonPanel;
 import client.owner.view.OwnerHomePanel;
-import java.io.File;
-import javax.swing.JFrame;
 
+import javax.swing.JFrame;
+import java.io.File;
 
 public class RegistrationUIManager {
 
@@ -30,8 +30,7 @@ public class RegistrationUIManager {
     public static void openCustomerHomePage(ILoginView loginView, String username) {
         String userFilePath = "userData/" + username + ".xml";
         loginView.setVisible(false);
-        CustomerHomePage homePage = new CustomerHomePage(username, new File(userFilePath));
-
+        CustomerHomePage homePage = new CustomerHomePage(username, userFilePath); // Pass file path as String
 
         new CustomerHomeController(homePage, username, userFilePath);
         homePage.setVisible(true);

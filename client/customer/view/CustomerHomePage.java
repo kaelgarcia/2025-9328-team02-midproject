@@ -1,7 +1,6 @@
 package client.customer.view;
 
 import java.awt.*;
-import java.io.File;
 import javax.swing.*;
 
 public class CustomerHomePage extends JFrame {
@@ -19,7 +18,7 @@ public class CustomerHomePage extends JFrame {
     private Runnable historyButtonListener;
     private Runnable logoutButtonListener;
 
-    public CustomerHomePage(String username, File userFile) {
+    public CustomerHomePage(String username, String userFile) {
         setTitle("Customer Home");
         setSize(600, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
