@@ -9,6 +9,7 @@ import client.owner.view.OwnerHomePanel;
 import javax.swing.*;
 import java.awt.*;
 import java.io.File;
+import java.rmi.RemoteException;
 
 public class OwnerHomeButtonPanel extends JPanel {
     private JButton laundryButton;
@@ -73,9 +74,14 @@ public class OwnerHomeButtonPanel extends JPanel {
     public void setOnLogoutClick(Runnable onLogoutClick) {
         this.onLogoutClick = onLogoutClick;
     }
-    public LaundryPanel createLaundryPanel() {
+    public LaundryPanel createLaundryPanel() throws RemoteException {
         LaundryPanel laundryPanel = new LaundryPanel();
-        LaundryController laundryController = new LaundryController(laundryPanel, new LaundryButtonActions(), scheduleFile);
+        LaundryController laundryController = null;
+        try {
+            laundryController = new LaundryController(laundryPanel, new LaundryButtonActions(), scheduleFile);
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
         laundryPanel.setLaundryController(laundryController);
         return laundryPanel;
     }

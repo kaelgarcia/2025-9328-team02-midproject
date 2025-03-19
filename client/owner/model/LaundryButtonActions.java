@@ -9,13 +9,22 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.file.Paths;
+import java.rmi.Naming;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.List;
 import client.utility.ClientServerConnection;
 
-public class LaundryButtonActions { // implement remote access using RMI + JSON
-    public void addTimeToSchedule(String time, File scheduleFile) {
+public class LaundryButtonActions extends UnicastRemoteObject implements LaundryButtonActionsRemote {
+
+    protected LaundryButtonActions() throws RemoteException {
+        super();
+    }
+
+    public void addTimeToSchedule(String time, String scheduleFilePath) throws RemoteException {
         try {
+            File scheduleFile = new File(scheduleFilePath);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(scheduleFile);
@@ -35,8 +44,9 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
         }
     }
 
-    public void deleteTimeFromSchedule(String time, File scheduleFile) {
+    public void deleteTimeFromSchedule(String time, String scheduleFilePath) throws RemoteException {
         try {
+            File scheduleFile = new File(scheduleFilePath);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(scheduleFile);
@@ -61,7 +71,7 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
         }
     }
 
-    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) {
+    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) throws RemoteException {
         if (searchQuery == null || searchQuery.isEmpty()) {
             return allTransactions;
         }
@@ -78,7 +88,7 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
         return filteredTransactions;
     }
 
-    public List<String[]> loadLaundryTransactions() {
+    public List<String[]> loadLaundryTransactions() throws RemoteException {
         List<String[]> transactions = new ArrayList<>();
         File userDataDir = new File("userData");
         if (userDataDir.exists() && userDataDir.isDirectory()) {
@@ -92,7 +102,7 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
         return transactions;
     }
 
-    private List<String[]> loadLaundryTransactionsFromFile(File file) {
+    private List<String[]> loadLaundryTransactionsFromFile(File file) throws RemoteException {
         List<String[]> transactions = new ArrayList<>();
         try {
             String username = Paths.get(file.getName()).getFileName().toString().replace(".xml", "");
@@ -119,7 +129,7 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
         return transactions;
     }
 
-    private void saveToFile(Document doc, File scheduleFile) {
+    private void saveToFile(Document doc, File scheduleFile) throws RemoteException {
         try (FileOutputStream output = new FileOutputStream(scheduleFile)) {
             TransformerFactory transformerFactory = TransformerFactory.newInstance();
             Transformer transformer = transformerFactory.newTransformer();
@@ -128,7 +138,17 @@ public class LaundryButtonActions { // implement remote access using RMI + JSON
 
             ClientServerConnection client = ClientServerConnection.getInstance();
             client.requestToServer("ReceiveFile");
-           // client.sendXMLFileToServer(scheduleFile.getAbsolutePath()); // must have method in server
+            client.sendXMLFileToServer(scheduleFile.getAbsolutePath());
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        try {
+            LaundryButtonActionsRemote obj = new LaundryButtonActions();
+            Naming.rebind("LaundryService", obj);
+            System.out.println("Laundry Service is running...");
         } catch (Exception e) {
             e.printStackTrace();
         }

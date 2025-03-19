@@ -125,4 +125,7 @@ public class ClientServerConnection extends Thread{
         }
     }
 
+    public void sendXMLFileToServer(String filePath) {
+        System.out.println("Sending file to server: " + filePath);
+    }
 }
