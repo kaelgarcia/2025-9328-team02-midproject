@@ -12,8 +12,8 @@ import java.nio.file.Paths;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.SimpleDateFormat;
+import java.util.*;
 import client.utility.ClientServerConnection;
 
 public class LaundryButtonActions extends UnicastRemoteObject implements LaundryButtonActionsRemote {
@@ -22,12 +22,44 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
         super();
     }
 
+    private boolean isValidTimeFormat(String time) {
+        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
+        sdf.setLenient(false);
+        try {
+            sdf.parse(time);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private boolean isTimeAlreadyBooked(String time, Document doc) {
+        NodeList timeSlots = doc.getElementsByTagName("time");
+        for (int i = 0; i < timeSlots.getLength(); i++) {
+            Element timeSlot = (Element) timeSlots.item(i);
+            if (timeSlot.getAttribute("slot").equals(time) && !timeSlot.getTextContent().equals("VACANT")) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void addTimeToSchedule(String time, String scheduleFilePath) throws RemoteException {
+        if (!isValidTimeFormat(time)) {
+            System.out.println("Invalid time format. Please use HH:mm format.");
+            return;
+        }
+
         try {
             File scheduleFile = new File(scheduleFilePath);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(scheduleFile);
+
+            if (isTimeAlreadyBooked(time, doc)) {
+                System.out.println("Time slot already booked.");
+                return;
+            }
 
             NodeList daysList = doc.getElementsByTagName("day");
             for (int i = 0; i < daysList.getLength(); i++) {
@@ -71,62 +103,41 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
         }
     }
 
-    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) throws RemoteException {
-        if (searchQuery == null || searchQuery.isEmpty()) {
-            return allTransactions;
+    public boolean bookTimeSlot(String time, String scheduleFilePath, String clientName) throws RemoteException {
+        if (!isValidTimeFormat(time)) {
+            System.out.println("Invalid time format. Please use HH:mm format.");
+            return false;
         }
 
-        List<String[]> filteredTransactions = new ArrayList<>();
-        for (String[] transaction : allTransactions) {
-            for (String field : transaction) {
-                if (field.toLowerCase().contains(searchQuery.toLowerCase())) {
-                    filteredTransactions.add(transaction);
-                    break;
-                }
-            }
-        }
-        return filteredTransactions;
-    }
-
-    public List<String[]> loadLaundryTransactions() throws RemoteException {
-        List<String[]> transactions = new ArrayList<>();
-        File userDataDir = new File("userData");
-        if (userDataDir.exists() && userDataDir.isDirectory()) {
-            File[] userFiles = userDataDir.listFiles((dir, name) -> name.endsWith(".xml"));
-            if (userFiles != null) {
-                for (File file : userFiles) {
-                    transactions.addAll(loadLaundryTransactionsFromFile(file));
-                }
-            }
-        }
-        return transactions;
-    }
-
-    private List<String[]> loadLaundryTransactionsFromFile(File file) throws RemoteException {
-        List<String[]> transactions = new ArrayList<>();
         try {
-            String username = Paths.get(file.getName()).getFileName().toString().replace(".xml", "");
+            File scheduleFile = new File(scheduleFilePath);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(file);
+            Document doc = builder.parse(scheduleFile);
 
-            NodeList bookingsList = doc.getElementsByTagName("booking");
-            for (int i = 0; i < bookingsList.getLength(); i++) {
-                Element bookingElement = (Element) bookingsList.item(i);
-                String machineType = bookingElement.getElementsByTagName("machineType").item(0).getTextContent();
+            if (isTimeAlreadyBooked(time, doc)) {
+                System.out.println("Time slot already booked.");
+                return false;
+            }
 
-                if ("laundry".equalsIgnoreCase(machineType)) {
-                    String date = bookingElement.getElementsByTagName("date").item(0).getTextContent();
-                    String time = bookingElement.getElementsByTagName("time").item(0).getTextContent();
-                    if (date != null && time != null) {
-                        transactions.add(new String[]{username, date, time});
+            NodeList daysList = doc.getElementsByTagName("day");
+            for (int i = 0; i < daysList.getLength(); i++) {
+                Element day = (Element) daysList.item(i);
+                NodeList timeSlots = day.getElementsByTagName("time");
+                
+                for (int j = 0; j < timeSlots.getLength(); j++) {
+                    Element timeSlot = (Element) timeSlots.item(j);
+                    if (timeSlot.getAttribute("slot").equals(time) && timeSlot.getTextContent().equals("VACANT")) {
+                        timeSlot.setTextContent(clientName);
+                        saveToFile(doc, scheduleFile);
+                        return true;
                     }
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return transactions;
+        return false;
     }
 
     private void saveToFile(Document doc, File scheduleFile) throws RemoteException {
