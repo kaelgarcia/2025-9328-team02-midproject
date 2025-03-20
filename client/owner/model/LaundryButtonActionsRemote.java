@@ -9,4 +9,8 @@ public interface LaundryButtonActionsRemote extends Remote {
     void deleteTimeFromSchedule(String time, String scheduleFilePath) throws RemoteException;
     List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) throws RemoteException;
     List<String[]> loadLaundryTransactions() throws RemoteException;
+
+    // New methods for validation
+    boolean isTimeSlotAvailable(String time, String scheduleFilePath) throws RemoteException;
+    boolean isValidTimeFormat(String time) throws RemoteException;
 }
