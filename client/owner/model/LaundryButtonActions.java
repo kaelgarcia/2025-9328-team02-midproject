@@ -8,29 +8,22 @@ import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
-import java.nio.file.Paths;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.regex.Pattern;
 import client.utility.ClientServerConnection;
 
 public class LaundryButtonActions extends UnicastRemoteObject implements LaundryButtonActionsRemote {
+
+    private static final Pattern TIME_FORMAT_PATTERN = Pattern.compile("^([01]?[0-9]|2[0-3]):[0-5][0-9]$");
 
     protected LaundryButtonActions() throws RemoteException {
         super();
     }
 
     private boolean isValidTimeFormat(String time) {
-        SimpleDateFormat sdf = new SimpleDateFormat("HH:mm");
-        sdf.setLenient(false);
-        try {
-            sdf.parse(time);
-            return true;
-        } catch (Exception e) {
-            return false;
-        }
+        return TIME_FORMAT_PATTERN.matcher(time).matches();
     }
 
     private boolean isTimeAlreadyBooked(String time, Document doc) {
@@ -44,10 +37,10 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
         return false;
     }
 
+    @Override
     public void addTimeToSchedule(String time, String scheduleFilePath) throws RemoteException {
         if (!isValidTimeFormat(time)) {
-            System.out.println("Invalid time format. Please use HH:mm format.");
-            return;
+            throw new RemoteException("Invalid time format. Use HH:MM (24-hour format).");
         }
 
         try {
@@ -57,8 +50,7 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
             Document doc = builder.parse(scheduleFile);
 
             if (isTimeAlreadyBooked(time, doc)) {
-                System.out.println("Time slot already booked.");
-                return;
+                throw new RemoteException("Time slot already booked.");
             }
 
             NodeList daysList = doc.getElementsByTagName("day");
@@ -72,10 +64,11 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
 
             saveToFile(doc, scheduleFile);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RemoteException("Error updating schedule: " + e.getMessage());
         }
     }
 
+    @Override
     public void deleteTimeFromSchedule(String time, String scheduleFilePath) throws RemoteException {
         try {
             File scheduleFile = new File(scheduleFilePath);
@@ -92,21 +85,20 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
                     Element timeSlot = (Element) timeSlots.item(j);
                     if (timeSlot.getAttribute("slot").equals(time)) {
                         day.removeChild(timeSlot);
-                        break;
+                        saveToFile(doc, scheduleFile);
+                        return;
                     }
                 }
             }
-
-            saveToFile(doc, scheduleFile);
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RemoteException("Error deleting time slot: " + e.getMessage());
         }
     }
 
+    @Override
     public boolean bookTimeSlot(String time, String scheduleFilePath, String clientName) throws RemoteException {
         if (!isValidTimeFormat(time)) {
-            System.out.println("Invalid time format. Please use HH:mm format.");
-            return false;
+            throw new RemoteException("Invalid time format. Use HH:MM (24-hour format).");
         }
 
         try {
@@ -116,15 +108,14 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
             Document doc = builder.parse(scheduleFile);
 
             if (isTimeAlreadyBooked(time, doc)) {
-                System.out.println("Time slot already booked.");
-                return false;
+                throw new RemoteException("Time slot already booked.");
             }
 
             NodeList daysList = doc.getElementsByTagName("day");
             for (int i = 0; i < daysList.getLength(); i++) {
                 Element day = (Element) daysList.item(i);
                 NodeList timeSlots = day.getElementsByTagName("time");
-                
+
                 for (int j = 0; j < timeSlots.getLength(); j++) {
                     Element timeSlot = (Element) timeSlots.item(j);
                     if (timeSlot.getAttribute("slot").equals(time) && timeSlot.getTextContent().equals("VACANT")) {
@@ -135,7 +126,7 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
                 }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RemoteException("Error booking time slot: " + e.getMessage());
         }
         return false;
     }
@@ -151,7 +142,7 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
             client.requestToServer("ReceiveFile");
             client.sendXMLFileToServer(scheduleFile.getAbsolutePath());
         } catch (Exception e) {
-            e.printStackTrace();
+            throw new RemoteException("Error saving schedule: " + e.getMessage());
         }
     }
 
