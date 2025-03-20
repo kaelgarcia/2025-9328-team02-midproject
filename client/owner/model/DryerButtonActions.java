@@ -10,13 +10,22 @@ import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.*;
 import java.nio.file.Paths;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 
-public class DryerButtonActions {  // implement remote access using RMI + JSON
-    public void addTimeToSchedule(String time, File scheduleFile) {
+public class DryerButtonActions {
+    private static final SimpleDateFormat TIME_FORMAT = new SimpleDateFormat("HH:mm");
+
+    public boolean addTimeToSchedule(String time, File scheduleFile) {
+        if (!isValidTimeFormat(time)) {
+            System.out.println("Invalid time format. Use HH:mm (24-hour format).");
+            return false;
+        }
+
         try {
-            System.out.println("Attempting to add time: " + time);
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = builder.parse(scheduleFile);
@@ -25,25 +34,31 @@ public class DryerButtonActions {  // implement remote access using RMI + JSON
             for (int i = 0; i < daysList.getLength(); i++) {
                 Element day = (Element) daysList.item(i);
 
-                // Create new time slot element
+                if (isTimeSlotTaken(day, time)) {
+                    System.out.println("Time slot " + time + " is already booked.");
+                    return false;
+                }
+
                 Element newTimeSlot = doc.createElement("time");
                 newTimeSlot.setAttribute("slot", time);
                 newTimeSlot.setTextContent("VACANT");
-
-                // Append to the day node
                 day.appendChild(newTimeSlot);
-                System.out.println("Added time to " + day.getAttribute("date"));
             }
 
             saveToFile(doc, scheduleFile);
-            System.out.println("Time added successfully!");
-
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public void deleteTimeFromSchedule(String time, File scheduleFile) {
+    public boolean bookTimeSlot(String time, File scheduleFile, String clientName) {
+        if (!isValidTimeFormat(time)) {
+            System.out.println("Invalid time format.");
+            return false;
+        }
+
         try {
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
@@ -52,85 +67,45 @@ public class DryerButtonActions {  // implement remote access using RMI + JSON
             NodeList daysList = doc.getElementsByTagName("day");
             for (int i = 0; i < daysList.getLength(); i++) {
                 Element day = (Element) daysList.item(i);
-                NodeList timeSlots = day.getElementsByTagName("time");
 
-                for (int j = 0; j < timeSlots.getLength(); j++) {
-                    Element timeSlot = (Element) timeSlots.item(j);
-                    if (timeSlot.getAttribute("slot").equals(time)) {
-                        day.removeChild(timeSlot); // Remove the node
-                        break;
-                    }
+                if (isTimeSlotTaken(day, time)) {
+                    System.out.println("Time slot " + time + " is already booked.");
+                    return false;
                 }
+
+                Element newTimeSlot = doc.createElement("time");
+                newTimeSlot.setAttribute("slot", time);
+                newTimeSlot.setTextContent(clientName);
+                day.appendChild(newTimeSlot);
             }
 
             saveToFile(doc, scheduleFile);
+            return true;
         } catch (Exception e) {
             e.printStackTrace();
+            return false;
         }
     }
 
-    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) {
-        if (searchQuery == null || searchQuery.isEmpty()) {
-            return allTransactions; // Return all if search query is empty
-        }
-
-        List<String[]> filteredTransactions = new ArrayList<>();
-        for (String[] transaction : allTransactions) {
-            for (String field : transaction) {
-                if (field.toLowerCase().contains(searchQuery.toLowerCase())) {
-                    filteredTransactions.add(transaction);
-                    break;
-                }
-            }
-        }
-
-        return filteredTransactions;
-    }
-
-    public List<String[]> loadDryerTransactions() {
-        List<String[]> transactions = new ArrayList<>();
-
-        File userDataDir = new File("userData");
-        if (userDataDir.exists() && userDataDir.isDirectory()) {
-            File[] userFiles = userDataDir.listFiles((dir, name) -> name.endsWith(".xml"));
-            if (userFiles != null) {
-                for (File file : userFiles) {
-                    transactions.addAll(loadDryerTransactionsFromFile(file));
-                }
-            }
-        }
-
-        return transactions;
-    }
-
-    private List<String[]> loadDryerTransactionsFromFile(File file) {
-        List<String[]> transactions = new ArrayList<>();
+    private boolean isValidTimeFormat(String time) {
         try {
-            String username = Paths.get(file.getName()).getFileName().toString().replace(".xml", "");
-
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document doc = builder.parse(file);
-
-            NodeList bookingsList = doc.getElementsByTagName("booking");
-            for (int i = 0; i < bookingsList.getLength(); i++) {
-                Element bookingElement = (Element) bookingsList.item(i);
-                String machineType = bookingElement.getElementsByTagName("machineType").item(0).getTextContent();
-
-                if ("dryer".equalsIgnoreCase(machineType)) {
-                    String date = bookingElement.getElementsByTagName("date").item(0).getTextContent();
-                    String time = bookingElement.getElementsByTagName("time").item(0).getTextContent();
-
-                    if (date != null && time != null) {
-                        // Add transaction with username, date, and time
-                        transactions.add(new String[]{username, date, time});
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
+            TIME_FORMAT.setLenient(false);
+            TIME_FORMAT.parse(time);
+            return true;
+        } catch (ParseException e) {
+            return false;
         }
-        return transactions;
+    }
+
+    private boolean isTimeSlotTaken(Element day, String time) {
+        NodeList timeSlots = day.getElementsByTagName("time");
+        for (int j = 0; j < timeSlots.getLength(); j++) {
+            Element timeSlot = (Element) timeSlots.item(j);
+            if (timeSlot.getAttribute("slot").equals(time)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void saveToFile(Document doc, File scheduleFile) {
@@ -142,10 +117,9 @@ public class DryerButtonActions {  // implement remote access using RMI + JSON
 
             ClientServerConnection client = ClientServerConnection.getInstance();
             client.requestToServer("ReceiveFile");
-            // client.sendXMLFileToServer(String.valueOf(scheduleFile)); // must have method in server
+            client.sendXMLFileToServer(scheduleFile.getAbsolutePath());
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 }
