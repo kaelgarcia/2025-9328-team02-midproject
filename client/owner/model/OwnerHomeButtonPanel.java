@@ -10,6 +10,7 @@ import javax.swing.*;
 import java.awt.*;
 import java.io.File;
 import java.rmi.RemoteException;
+import java.util.regex.Pattern;
 
 public class OwnerHomeButtonPanel extends JPanel {
     private JButton laundryButton;
@@ -22,6 +23,8 @@ public class OwnerHomeButtonPanel extends JPanel {
     private Runnable onCalendarClick; // New Event Handler
     private Runnable onLogoutClick;
     private File scheduleFile;
+
+    private static final Pattern TIME_FORMAT_PATTERN = Pattern.compile("^([01]?[0-9]|2[0-3]):[0-5][0-9]$");
 
     public OwnerHomeButtonPanel(OwnerHomePanel ownerPanel) {
         this.setLayout(new FlowLayout());
@@ -45,18 +48,54 @@ public class OwnerHomeButtonPanel extends JPanel {
     }
 
     private void attachListeners() {
-        this.laundryButton.addActionListener(e -> {
-            if (onLaundryClick != null) onLaundryClick.run();
-        });
-        this.dryerButton.addActionListener(e -> {
-            if (onDryerClick != null) onDryerClick.run();
-        });
+        this.laundryButton.addActionListener(e -> handleBooking("Laundry"));
+        this.dryerButton.addActionListener(e -> handleBooking("Dryer"));
         this.calendarButton.addActionListener(e -> { // Calendar Button Action
             if (onCalendarClick != null) onCalendarClick.run();
         });
         this.logoutButton.addActionListener(e -> {
             if (onLogoutClick != null) onLogoutClick.run();
         });
+    }
+
+    private void handleBooking(String type) {
+        String time = JOptionPane.showInputDialog(this, "Enter time (HH:MM, 24-hour format):");
+
+        if (time == null || time.trim().isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Time input is required.", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        if (!isValidTimeFormat(time)) {
+            JOptionPane.showMessageDialog(this, "Invalid time format. Use HH:MM (24-hour format).", "Error", JOptionPane.ERROR_MESSAGE);
+            return;
+        }
+
+        LaundryButtonActionsRemote laundryService;
+        try {
+            laundryService = (LaundryButtonActionsRemote) java.rmi.Naming.lookup("rmi://localhost/LaundryService");
+
+            // Check if time is already booked
+            if (laundryService.isTimeAlreadyBooked(time, "schedule.xml")) {
+                JOptionPane.showMessageDialog(this, "This time slot is already booked.", "Error", JOptionPane.ERROR_MESSAGE);
+                return;
+            }
+
+            // Book the time slot
+            boolean booked = laundryService.bookTimeSlot(time, "schedule.xml", type);
+            if (booked) {
+                JOptionPane.showMessageDialog(this, "Time slot booked successfully!", "Success", JOptionPane.INFORMATION_MESSAGE);
+            } else {
+                JOptionPane.showMessageDialog(this, "Failed to book the time slot.", "Error", JOptionPane.ERROR_MESSAGE);
+            }
+
+        } catch (Exception ex) {
+            JOptionPane.showMessageDialog(this, "Error connecting to laundry service: " + ex.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private boolean isValidTimeFormat(String time) {
+        return TIME_FORMAT_PATTERN.matcher(time).matches();
     }
 
     public void setOnLaundryClick(Runnable onLaundryClick) {
@@ -74,6 +113,7 @@ public class OwnerHomeButtonPanel extends JPanel {
     public void setOnLogoutClick(Runnable onLogoutClick) {
         this.onLogoutClick = onLogoutClick;
     }
+
     public LaundryPanel createLaundryPanel() throws RemoteException {
         LaundryPanel laundryPanel = new LaundryPanel();
         LaundryController laundryController = null;
@@ -92,5 +132,4 @@ public class OwnerHomeButtonPanel extends JPanel {
         dryerPanel.setDryerController(dryerController);
         return dryerPanel;
     }
-
 }
