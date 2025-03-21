@@ -1,0 +1,9 @@
+package client.registration.rmi;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+
+public interface RegistrationServer extends Remote {
+    boolean login(String username, String password) throws RemoteException;
+    boolean signUp(String username, String password, String email) throws RemoteException;
+}

@@ -1,0 +1,44 @@
+package server;
+
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.HashMap;
+import java.util.Map;
+
+import client.registration.rmi.RegistrationServer;
+import com.google.gson.Gson;
+
+public class RegistrationServerImpl extends UnicastRemoteObject implements RegistrationServer {
+    private Map<String, String> users;
+    private Gson gson;
+
+    public RegistrationServerImpl() throws RemoteException {
+        super();
+        users = new HashMap<>();
+        gson = new Gson();
+    }
+
+    @Override
+    public boolean login(String username, String password) throws RemoteException {
+        return users.containsKey(username) && users.get(username).equals(password);
+    }
+
+    @Override
+    public boolean signUp(String username, String password, String email) throws RemoteException {
+        if (users.containsKey(username)) {
+            return false;
+        }
+        users.put(username, password);
+        // In a real-world scenario, you'd also store the email and probably use a database
+        return true;
+    }
+
+    // Helper method to convert user data to JSON
+    private String userToJson(String username, String password, String email) {
+        Map<String, String> userMap = new HashMap<>();
+        userMap.put("username", username);
+        userMap.put("password", password);
+        userMap.put("email", email);
+        return gson.toJson(userMap);
+    }
+}

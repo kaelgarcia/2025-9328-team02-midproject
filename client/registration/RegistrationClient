@@ -1,0 +1,19 @@
+package client;
+
+import client.registration.view.RegistrationUIManager;
+
+import javax.swing.*;
+
+public class RegistrationClient {
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(() -> {
+            try {
+                RegistrationUIManager uiManager = new RegistrationUIManager();
+                uiManager.show();
+            } catch (Exception e) {
+                e.printStackTrace();
+                JOptionPane.showMessageDialog(null, "Error starting the application: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
+    }
+}

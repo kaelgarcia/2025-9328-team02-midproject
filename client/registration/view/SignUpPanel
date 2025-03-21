@@ -1,18 +1,19 @@
 package client.registration.view;
 
-import client.registration.controller.LoginController;
+import client.registration.controller.SignUpController;
 
 import javax.swing.*;
 import java.awt.*;
 
-public class LoginPanel extends JPanel implements ILoginView {
+public class SignUpPanel extends JPanel implements ISignUpView {
     private JTextField usernameField;
     private JPasswordField passwordField;
-    private JButton loginButton;
+    private JTextField emailField;
     private JButton signUpButton;
-    private LoginController controller;
+    private JButton backToLoginButton;
+    private SignUpController controller;
 
-    public LoginPanel(LoginController controller) {
+    public SignUpPanel(SignUpController controller) {
         this.controller = controller;
         setLayout(new GridBagLayout());
         initComponents();
@@ -24,8 +25,9 @@ public class LoginPanel extends JPanel implements ILoginView {
 
         usernameField = new JTextField(20);
         passwordField = new JPasswordField(20);
-        loginButton = new JButton("Login");
+        emailField = new JTextField(20);
         signUpButton = new JButton("Sign Up");
+        backToLoginButton = new JButton("Back to Login");
 
         gbc.gridx = 0;
         gbc.gridy = 0;
@@ -45,31 +47,29 @@ public class LoginPanel extends JPanel implements ILoginView {
 
         gbc.gridx = 0;
         gbc.gridy = 2;
-        gbc.gridwidth = 2;
-        add(loginButton, gbc);
+        add(new JLabel("Email:"), gbc);
 
+        gbc.gridx = 1;
+        gbc.gridy = 2;
+        add(emailField, gbc);
+
+        gbc.gridx = 0;
         gbc.gridy = 3;
+        gbc.gridwidth = 2;
         add(signUpButton, gbc);
 
-        loginButton.addActionListener(e -> controller.login(usernameField.getText(), new String(passwordField.getPassword())));
-        signUpButton.addActionListener(e -> {
-            // Navigate to sign up panel
+        gbc.gridy = 4;
+        add(backToLoginButton, gbc);
+
+        signUpButton.addActionListener(e -> controller.signUp(usernameField.getText(), new String(passwordField.getPassword()), emailField.getText()));
+        backToLoginButton.addActionListener(e -> {
+            // Navigate back to login panel
         });
     
-        // ... (add this method to the LoginPanel class)
-        public void setSignUpButtonListener(ActionListener listener) {
-            signUpButton.addActionListener(listener);
+        // ... (add this method to the SignUpPanel class)
+        public void setBackToLoginButtonListener(ActionListener listener) {
+            backToLoginButton.addActionListener(listener);
         }
-    }
-
-    @Override
-    public String getUsername() {
-        return usernameField.getText();
-    }
-
-    @Override
-    public String getPassword() {
-        return new String(passwordField.getPassword());
     }
 
     @Override

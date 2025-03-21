@@ -1,26 +1,35 @@
 package client.registration.model;
 
+import com.google.gson.Gson;
+
 public class User {
     private String username;
     private String password;
+    private String email;
 
-    public User(String username, String password) {
+    public User(String username, String password, String email) {
         this.username = username;
         this.password = password;
+        this.email = email;
     }
 
-    public static String validateRegistration(String username, String password, String confirmPassword) {
-        if (username.isEmpty() || password.isEmpty() || confirmPassword.isEmpty()) {
-            return "All fields are required!";
-        }
-
-        if (!password.equals(confirmPassword)) {
-            return "Passwords do not match!";
-        }
-
-        return null; // No errors
+    public String getUsername() {
+        return username;
     }
 
-    public String getUsername() { return username; }
-    public String getPassword() { return password; }
+    public String getPassword() {
+        return password;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public String toJson() {
+        return new Gson().toJson(this);
+    }
+
+    public static User fromJson(String json) {
+        return new Gson().fromJson(json, User.class);
+    }
 }

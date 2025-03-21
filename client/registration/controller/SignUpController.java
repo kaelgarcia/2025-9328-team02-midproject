@@ -2,43 +2,31 @@ package client.registration.controller;
 
 import client.registration.model.User;
 import client.registration.view.ISignUpView;
+import client.registration.rmi.RegistrationServer;
 
+import java.rmi.RemoteException;
 
 public class SignUpController {
     private ISignUpView view;
+    private RegistrationServer server;
 
-    public SignUpController(ISignUpView view) {
+    public SignUpController(ISignUpView view, RegistrationServer server) {
         this.view = view;
-        this.view.addRegisterListener((username, password, confirmPassword) -> {
-            String error = User.validateRegistration(username, password, confirmPassword);
+        this.server = server;
+    }
 
-            if (error != null) {
-                view.showMessage(error);
+    public void signUp(String username, String password, String email) {
+        User user = new User(username, password, email);
+        try {
+            boolean success = server.signUp(user.getUsername(), user.getPassword(), user.getEmail());
+            if (success) {
+                view.showMessage("Sign up successful");
+                // Navigate to the login screen
             } else {
-                User newUser = new User(username, password);
-                saveUserToXML(newUser);
-                view.showMessage("Registration successful!");
-                view.clearFields();
-
-                javax.swing.SwingUtilities.invokeLater(() -> {
-                    view.dispose();
-                    client.registration.view.LoginPanel loginPanel = new client.registration.view.LoginPanel();
-                    new LoginController(loginPanel);
-                    loginPanel.setVisible(true);
-                });
+                view.showError("Sign up failed. Username may already exist.");
             }
-        });
-    }
-
-    private void saveUserToXML(User user) {
-        // Save user to XML
-    }
-
-    public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            client.registration.view.SignUpView view = new client.registration.view.SignUpView();
-            new SignUpController(view);
-            view.setVisible(true);
-        });
+        } catch (RemoteException e) {
+            view.showError("Error connecting to server: " + e.getMessage());
+        }
     }
 }

@@ -3,19 +3,16 @@ package server;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
-/**
- * Launches the RMI server.
- */
 public class ServerLauncher {
     public static void main(String[] args) {
         try {
-            ServerImpl server = new ServerImpl();
+            RegistrationServerImpl registrationServer = new RegistrationServerImpl();
             Registry registry = LocateRegistry.createRegistry(1099);
-            registry.rebind("Server", server);
-            System.out.println("Server is running...");
+            registry.rebind("RegistrationServer", registrationServer);
+            System.out.println("Registration Server is running...");
         } catch (Exception e) {
+            System.err.println("Server exception: " + e.toString());
             e.printStackTrace();
         }
     }
 }
-
