@@ -1,10 +1,10 @@
 package client.customer.controller;
 
-import client.customer.model.TimeSlotModel;
-import server.customer.LogServer;
-import client.customer.view.TransactionView;
-import client.customer.view.CustomerHomePage;
 import client.customer.model.BookingConfirmationModel;
+import client.customer.model.TimeSlotModel;
+import client.customer.view.CustomerHomePage;
+import client.customer.view.TransactionView;
+import server.ServerInterface;
 
 public class TransactionController {
     private final TransactionView view;
@@ -12,17 +12,18 @@ public class TransactionController {
     private final String machineType;
     private final String selectedDate;
     private final String selectedTimeSlot;
-    private final String username;
+    private String username;
 
     public TransactionController(TransactionView view, TimeSlotModel timeSlotModel,
                                  CustomerHomePage homePage, String machineType,
-                                 String selectedDate, String selectedTimeSlot, String userFilePath) {
+                                 String selectedDate, String selectedTimeSlot,
+                                 ServerInterface server) {
         this.view = view;
-        this.model = new BookingConfirmationModel(timeSlotModel, userFilePath, "data.xml");
+        this.model = new BookingConfirmationModel(timeSlotModel, server, "data.xml");
         this.machineType = machineType;
         this.selectedDate = selectedDate;
         this.selectedTimeSlot = selectedTimeSlot;
-        this.username = extractUsernameFromPath(userFilePath);
+        this.username = username;
         setupListeners();
     }
 
@@ -38,7 +39,6 @@ public class TransactionController {
         if (success) {
             view.showMessage("Booking Confirmed!", true);
             view.navigateToHome();
-            LogServer.log(username + " booked " + machineType + " at " + selectedDate + ", " + selectedTimeSlot);
         } else {
             view.showMessage("Failed to confirm booking! Please try again.", false);
         }
@@ -46,10 +46,6 @@ public class TransactionController {
 
     public void cancelBooking() {
         view.navigateToHome();
-    }
-
-    private String extractUsernameFromPath(String userFilePath) {
-        return userFilePath.substring(userFilePath.lastIndexOf("/") + 1).replace(".xml", "");
     }
 
     public TransactionView getView() {
