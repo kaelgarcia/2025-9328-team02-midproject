@@ -6,6 +6,7 @@ import java.rmi.registry.Registry;
 public class ServerLauncher {
     public static void main(String[] args) {
         try {
+            CustomerServerImpl customerServer = new CustomerServerImpl();
             RegistrationServerImpl registrationServer = new RegistrationServerImpl();
             Registry registry = LocateRegistry.createRegistry(1099);
             registry.rebind("RegistrationServer", registrationServer);
