@@ -1,142 +1,86 @@
 package client.customer.model;
 
-import client.utility.ClientServerConnection;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import server.ServerInterface;
 
-import javax.xml.parsers.DocumentBuilder;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.transform.Transformer;
-import javax.xml.transform.TransformerException;
-import javax.xml.transform.TransformerFactory;
-import javax.xml.transform.dom.DOMSource;
-import javax.xml.transform.stream.StreamResult;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TimeSlotModel { // ALL WILL BE CONVERTED AS RMI AND JSON
+public class TimeSlotModel {
     private final String machineType;
     private final String date;
-    private String scheduleFilePath;
+    private ServerInterface server;
+    private List<String> timeSlots;
 
     public TimeSlotModel(String machineType, String date) {
         this.machineType = machineType;
         this.date = date;
+        this.timeSlots = new ArrayList<>();
+
+        try {
+
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            server = (ServerInterface) registry.lookup("Server");
+
+
+            loadTimeSlotsFromServer();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    public List<String> getTimeSlotsForDate(String machineType, String date) {
-        List<String> availableSlots = new ArrayList<>();
+    private void loadTimeSlotsFromServer() {
         try {
-            ClientServerConnection client = ClientServerConnection.getInstance();
-            client.connect();
-            client.requestToServer("GetTimeSlots");
-            Document document = client.receiveXMLFile("localFilesUser" + File.separator + "Sched.xml");
+            String jsonResponse = server.getTimeSlots();
 
-            if (document == null) return availableSlots;
 
-            document.getDocumentElement().normalize();
-            NodeList machineNodes = document.getElementsByTagName(machineType.toLowerCase());
-            for (int i = 0; i < machineNodes.getLength(); i++) {
-                Element machineElement = (Element) machineNodes.item(i);
-                NodeList dayNodes = machineElement.getElementsByTagName("day");
-                for (int j = 0; j < dayNodes.getLength(); j++) {
-                    Element dayElement = (Element) dayNodes.item(j);
-                    if (dayElement.getAttribute("date").equals(date)) {
-                        NodeList slotNodes = dayElement.getElementsByTagName("time");
-                        for (int k = 0; k < slotNodes.getLength(); k++) {
-                            Element slotElement = (Element) slotNodes.item(k);
-                            if ("VACANT".equalsIgnoreCase(slotElement.getTextContent().trim())) {
-                                availableSlots.add(slotElement.getAttribute("slot"));
-                            }
-                        }
-                    }
+            this.timeSlots = parseAndFilterTimeSlots(jsonResponse);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private List<String> parseAndFilterTimeSlots(String jsonString) {
+        List<String> filteredSlots = new ArrayList<>();
+
+        try {
+            JsonArray jsonArray = JsonParser.parseString(jsonString).getAsJsonArray();
+            for (int i = 0; i < jsonArray.size(); i++) {
+                JsonObject slotObject = jsonArray.get(i).getAsJsonObject();
+                String machine = slotObject.get("machineType").getAsString();
+                String slotDate = slotObject.get("date").getAsString();
+                String timeSlot = slotObject.get("slot").getAsString();
+                String status = slotObject.get("status").getAsString();
+
+
+                if (machine.equals(this.machineType) && slotDate.equals(this.date) && status.equalsIgnoreCase("VACANT")) {
+                    filteredSlots.add(timeSlot);
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return availableSlots;
-    }
 
-    public boolean updateSlotStatus(String machineType, String date, String timeSlot, String status) {
-        try {
-            machineType = machineType.toLowerCase();
-            File inputFile = new File(scheduleFilePath);
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(inputFile);
-            document.getDocumentElement().normalize();
-
-            NodeList machineNodes = document.getElementsByTagName(machineType);
-            for (int i = 0; i < machineNodes.getLength(); i++) {
-                Element machineElement = (Element) machineNodes.item(i);
-                NodeList dayNodes = machineElement.getElementsByTagName("day");
-                for (int j = 0; j < dayNodes.getLength(); j++) {
-                    Element dayElement = (Element) dayNodes.item(j);
-                    if (dayElement.getAttribute("date").equals(date)) {
-                        NodeList slotNodes = dayElement.getElementsByTagName("time");
-                        for (int k = 0; k < slotNodes.getLength(); k++) {
-                            Element slotElement = (Element) slotNodes.item(k);
-                            if (slotElement.getAttribute("slot").equals(timeSlot)) {
-                                slotElement.setTextContent(status);
-                                saveXML(document);
-                                return true;
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return false;
-    }
-
-    private void saveXML(Document document) throws TransformerException, FileNotFoundException {
-        Transformer transformer = TransformerFactory.newInstance().newTransformer();
-        transformer.transform(new DOMSource(document), new StreamResult(new FileOutputStream(scheduleFilePath)));
-    }
-    public String getSlotStatus(String machineType, String date, String timeSlot) {
-        try {
-            File inputFile = new File(scheduleFilePath);
-            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-            DocumentBuilder builder = factory.newDocumentBuilder();
-            Document document = builder.parse(inputFile);
-            document.getDocumentElement().normalize();
-
-            NodeList machineNodes = document.getElementsByTagName(machineType);
-            for (int i = 0; i < machineNodes.getLength(); i++) {
-                Element machineElement = (Element) machineNodes.item(i);
-                NodeList dayNodes = machineElement.getElementsByTagName("day");
-                for (int j = 0; j < dayNodes.getLength(); j++) {
-                    Element dayElement = (Element) dayNodes.item(j);
-                    if (dayElement.getAttribute("date").equals(date)) {
-                        NodeList slotNodes = dayElement.getElementsByTagName("time");
-                        for (int k = 0; k < slotNodes.getLength(); k++) {
-                            Element slotElement = (Element) slotNodes.item(k);
-                            if (slotElement.getAttribute("slot").equals(timeSlot)) {
-                                return slotElement.getTextContent();
-                            }
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return null;
+        return filteredSlots;
     }
 
     public List<String> getAvailableTimeSlots() {
-        return getTimeSlotsForDate(machineType, date);
+        return timeSlots;
     }
 
-    public String getSlotStatus(String timeSlot) {
-        return getSlotStatus(machineType, date, timeSlot);
+    public boolean bookTimeSlot(String timeSlot) {
+        if (!timeSlots.contains(timeSlot)) {
+            System.out.println("Time slot not available.");
+            return false;
+        }
+
+        timeSlots.remove(timeSlot); // Simulate booking
+        System.out.println("Slot booked successfully! (Not saved on server)");
+        return true;
     }
 
     public String getMachineType() {
