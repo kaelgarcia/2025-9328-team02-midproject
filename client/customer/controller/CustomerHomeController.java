@@ -1,20 +1,22 @@
 package client.customer.controller;
 
-import server.customer.LogServer;
+import client.customer.model.CustomerHomeModel;
+import client.customer.model.TimeSlotModel;
 import client.customer.view.*;
-import client.customer.model.*;
 import client.registration.controller.LoginController;
 import client.registration.view.LoginPanel;
-
+import server.ServerInterface;
+import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 
 public class CustomerHomeController {
     private final CustomerHomePage view;
     private final CustomerHomeModel model;
-    private TimeSlotModel timeSlotModel;
 
-    public CustomerHomeController(CustomerHomePage view, String username, String userFilePath) {
+    public CustomerHomeController(CustomerHomePage view, String username, ServerInterface server) {
         this.view = view;
-        this.model = new CustomerHomeModel(username, userFilePath);
+        this.model = new CustomerHomeModel(username, server);
         setupListeners();
     }
 
@@ -36,13 +38,6 @@ public class CustomerHomeController {
         view.navigateTo("BOOKING");
     }
 
-    public void openHistoryView() {
-        HistoryView historyView = new HistoryView();
-        new HistoryController(historyView, model.getUsername(), model.getUserFilePath());
-        view.addViewToMainPanel(historyView, "HISTORY");
-        view.navigateTo("HISTORY");
-    }
-
     public void openCalendarView(String machineType) {
         CalendarView calendarView = new CalendarView(machineType);
         new CalendarController(calendarView, this, machineType);
@@ -50,28 +45,27 @@ public class CustomerHomeController {
         view.navigateTo("CALENDAR");
     }
 
+    public void openHistoryView() {
+        HistoryView historyView = new HistoryView();
+        new HistoryController(historyView, model.getUsername(), model.getServer());
+        view.addViewToMainPanel(historyView, "HISTORY");
+        view.navigateTo("HISTORY");
+    }
+
     public void openTimeSlotView(String machineType, String date) {
         TimeSlotView timeSlotView = new TimeSlotView(machineType, date);
-        if (timeSlotModel == null) {
-            timeSlotModel = new TimeSlotModel("schedule.xml", model.getUserFilePath());
-            // String path passed
-        }
+        TimeSlotModel timeSlotModel = new TimeSlotModel(machineType, date, model.getServer());
         new TimeSlotController(timeSlotView, this, machineType, date, timeSlotModel);
         view.addViewToMainPanel(timeSlotView, "TIMESLOT");
         view.navigateTo("TIMESLOT");
     }
 
     public void openTransactionView(String machineType, String date, String timeSlot) {
-        if (timeSlotModel == null) {
-            timeSlotModel = new TimeSlotModel("schedule.xml", model.getUserFilePath());
-            // String path passed
-        }
         TransactionView transactionView = new TransactionView(machineType, date, timeSlot);
+        TimeSlotModel timeSlotModel = new TimeSlotModel(machineType, date, model.getServer());
         new TransactionController(
-                transactionView, timeSlotModel, view, machineType, date, timeSlot,
-                model.getUserFilePath()
+                transactionView, timeSlotModel, view, machineType, date, timeSlot, model.getServer()
         );
-        transactionView.setNavigationComponents(view.getMainPanel(), view.getCardLayout());
         view.addViewToMainPanel(transactionView, "TRANSACTION");
         view.navigateTo("TRANSACTION");
     }
@@ -92,18 +86,14 @@ public class CustomerHomeController {
     }
 
     public static void main(String[] args) {
-        LogServer.start();
-        Runnable startupTask = () -> {
+        try {
             String username = "kael";
-            String userFilePath = "userData/" + username + ".xml";
-            CustomerHomePage homePage = new CustomerHomePage(username, new String(userFilePath));
-            new CustomerHomeController(homePage, username, userFilePath);
-            homePage.setVisible(true);
-        };
-        if (javax.swing.SwingUtilities.isEventDispatchThread()) {
-            startupTask.run();
-        } else {
-            javax.swing.SwingUtilities.invokeLater(startupTask);
+            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
+            ServerInterface server = (ServerInterface) registry.lookup("ServerInterface");
+            CustomerHomePage homePage = new CustomerHomePage(username);
+            new CustomerHomeController(homePage, username, server);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 }
