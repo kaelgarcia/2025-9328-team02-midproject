@@ -4,15 +4,15 @@ import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableRowSorter;
 import java.awt.*;
-import java.util.List;
-import java.util.function.Consumer;
 
 public class HistoryView extends JPanel {
-    private JTable historyTable;
-    private DefaultTableModel tableModel;
-    private TableRowSorter<DefaultTableModel> rowSorter;
-    private JTextField searchField;
-    private JButton searchButton, saveButton, deleteButton;
+    private final JTable historyTable;
+    private final DefaultTableModel tableModel;
+    private final TableRowSorter<DefaultTableModel> rowSorter;
+    private final JTextField searchField;
+    private final JButton searchButton;
+    private final JButton saveButton;
+    private final JButton deleteButton;
 
     public HistoryView() {
         setLayout(new BorderLayout(20, 20));
@@ -58,15 +58,19 @@ public class HistoryView extends JPanel {
         add(bottomPanel, BorderLayout.SOUTH);
     }
 
-    public void updateHistory(List<String[]> historyRecords) {
+    public void updateHistory(String[][] historyRecords) {
         tableModel.setRowCount(0);
         for (String[] record : historyRecords) {
             tableModel.addRow(record);
         }
     }
 
-    public void setSearchListener(Consumer<String> listener) {
-        searchButton.addActionListener(e -> listener.accept(searchField.getText().trim()));
+    public interface SearchListener {
+        void onSearch(String query);
+    }
+
+    public void setSearchListener(SearchListener listener) {
+        searchButton.addActionListener(e -> listener.onSearch(searchField.getText().trim()));
     }
 
     public void setSaveListener(Runnable listener) {
