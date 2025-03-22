@@ -1,26 +1,39 @@
 package client.customer.model;
 
-import org.w3c.dom.*;
-import javax.xml.parsers.*;
-import javax.xml.transform.*;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
+import server.ServerInterface;
+
+import javax.xml.parsers.DocumentBuilder;
+import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.transform.OutputKeys;
+import javax.xml.transform.Transformer;
+import javax.xml.transform.TransformerFactory;
 import javax.xml.transform.dom.DOMSource;
 import javax.xml.transform.stream.StreamResult;
 import java.io.File;
-import java.sql.Time;
+import java.rmi.RemoteException;
 
 public class BookingConfirmationModel {
     private final TimeSlotModel timeSlotModel;
-    private final String userFilePath; // Changed from File
+    private final ServerInterface userFilePath; // Changed from File
     private final String dataFilePath; // Changed from File
 
-    public BookingConfirmationModel(TimeSlotModel timeSlotModel, String userFilePath, String dataFilePath) {
+    public BookingConfirmationModel(TimeSlotModel timeSlotModel, ServerInterface userFilePath, String dataFilePath) {
         this.timeSlotModel = timeSlotModel;
         this.userFilePath = userFilePath;
         this.dataFilePath = dataFilePath;
     }
 
     public boolean confirmBooking(String machineType, String date, String timeSlot, String username) {
-        boolean success = timeSlotModel.updateSlotStatus(machineType, date, timeSlot, "OCCUPIED");
+        boolean success = false;
+        try {
+            success = timeSlotModel.updateSlotStatus(machineType, date, timeSlot, "OCCUPIED");
+        } catch (RemoteException e) {
+            throw new RuntimeException(e);
+        }
         if (success) {
             saveBookingToUserFile(machineType, date, timeSlot);
             saveBookingToDataXML(username, machineType, date, timeSlot);
@@ -31,7 +44,7 @@ public class BookingConfirmationModel {
     private void saveBookingToUserFile(String machineType, String date, String timeSlot) {
         try {
             // Temporary: File operations remain; should be moved to a utility
-            File userFile = new File(userFilePath);
+            File userFile = new File(String.valueOf(userFilePath));
             DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
             DocumentBuilder builder = factory.newDocumentBuilder();
             Document doc = userFile.exists() ? builder.parse(userFile) : builder.newDocument();
