@@ -1,19 +1,19 @@
 package client.customer.view;
 
-import client.customer.model.TimeSlotModel; // this must not be here
 import javax.swing.*;
 import java.awt.*;
 
 public class TimeSlotView extends JPanel {
-    private String machineType;
-    private String selectedDate;
-    private TimeSlotModel timeSlotModel;
-    private JPanel slotPanel;
+    private final String machineType;
+    private final String selectedDate;
+    private final JPanel slotPanel;
+    private String[] displayedSlots;
+    private String[] displayedStatuses;
+    private SlotSelectionListener displayedListener;
 
     public TimeSlotView(String machineType, String selectedDate) {
         this.machineType = machineType.toLowerCase();
         this.selectedDate = selectedDate;
-
 
         setLayout(new BorderLayout());
         JLabel titleLabel = new JLabel("Select a Time Slot for " + selectedDate, SwingConstants.CENTER);
@@ -24,36 +24,39 @@ public class TimeSlotView extends JPanel {
         add(slotPanel, BorderLayout.CENTER);
     }
 
-    public void loadTimeSlots(final SlotSelectionListener listener) {
+    public void setTimeSlots(String[] slots, String[] statuses, SlotSelectionListener listener) {
+        this.displayedSlots = slots;
+        this.displayedStatuses = statuses;
+        this.displayedListener = listener;
+        updateUI();
+    }
+
+    public void updateUI() {
         slotPanel.removeAll();
-        String[] allSlots = timeSlotModel.getTimeSlotsForDate(machineType, selectedDate)
-                .toArray(new String[0]);
-
-        for (int i = 0; i < allSlots.length; i++) {
-            final String slot = allSlots[i];
-            JButton slotButton = new JButton(slot);
-            String slotStatus = timeSlotModel.getSlotStatus(machineType, selectedDate, slot);
-
-            if ("VACANT".equals(slotStatus)) {
-                slotButton.setBackground(Color.GREEN);
-                slotButton.setEnabled(true);
-                if (listener != null) {
-                    slotButton.addActionListener(e -> listener.onSlotSelected(slot));
+        if (displayedSlots != null && displayedStatuses != null && displayedSlots.length == displayedStatuses.length) {
+            for (int i = 0; i < displayedSlots.length; i++) {
+                final String slot = displayedSlots[i];
+                String status = displayedStatuses[i];
+                JButton slotButton = new JButton(slot);
+                if ("VACANT".equals(status)) {
+                    slotButton.setBackground(Color.GREEN);
+                    slotButton.setEnabled(true);
+                    if (displayedListener != null) {
+                        slotButton.addActionListener(e -> displayedListener.onSlotSelected(slot));
+                    }
+                } else {
+                    slotButton.setBackground(Color.RED);
+                    slotButton.setEnabled(false);
                 }
-            } else {
-                slotButton.setBackground(Color.RED);
-                slotButton.setEnabled(false);
+                slotPanel.add(slotButton);
             }
-
-            slotPanel.add(slotButton);
         }
-
         slotPanel.revalidate();
         slotPanel.repaint();
     }
 
     public void refreshUI() {
-        loadTimeSlots(null);
+        updateUI();
     }
 
     // Custom interface to replace java.util.function.Consumer
