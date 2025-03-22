@@ -1,16 +1,16 @@
 package client.customer.view;
 
-import java.awt.*;
 import javax.swing.*;
+import java.awt.*;
 
 public class CustomerHomePage extends JFrame {
-    private JButton homeButton;
-    private JButton bookButton;
-    private JButton historyButton;
-    private JButton logoutButton;
-    private JPanel mainPanel;
-    private CardLayout cardLayout;
-    private JLabel welcomeLabel;
+    private final JButton homeButton;
+    private final JButton bookButton;
+    private final JButton historyButton;
+    private final JButton logoutButton;
+    private final JPanel mainPanel;
+    private final CardLayout cardLayout;
+    private final JLabel welcomeLabel;
 
     // Add listener fields to store callback functions
     private Runnable homeButtonListener;
@@ -18,7 +18,7 @@ public class CustomerHomePage extends JFrame {
     private Runnable historyButtonListener;
     private Runnable logoutButtonListener;
 
-    public CustomerHomePage(String username, String userFile) {
+    public CustomerHomePage(String username) {
         setTitle("Customer Home");
         setSize(600, 400);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
