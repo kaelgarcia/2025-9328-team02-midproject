@@ -1,86 +1,38 @@
 package client.customer.model;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
 import server.ServerInterface;
 
-import java.rmi.registry.LocateRegistry;
-import java.rmi.registry.Registry;
+import java.rmi.RemoteException;
 import java.util.ArrayList;
 import java.util.List;
 
-public class TimeSlotModel {
+public class TimeSlotModel implements ServerInterface {
     private final String machineType;
     private final String date;
-    private ServerInterface server;
-    private List<String> timeSlots;
+    private final ServerInterface server;
 
-    public TimeSlotModel(String machineType, String date) {
+    public TimeSlotModel(String machineType, String date, ServerInterface server) {
         this.machineType = machineType;
         this.date = date;
-        this.timeSlots = new ArrayList<>();
-
-        try {
-
-            Registry registry = LocateRegistry.getRegistry("localhost", 1099);
-            server = (ServerInterface) registry.lookup("Server");
-
-
-            loadTimeSlotsFromServer();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private void loadTimeSlotsFromServer() {
-        try {
-            String jsonResponse = server.getTimeSlots();
-
-
-            this.timeSlots = parseAndFilterTimeSlots(jsonResponse);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
-    private List<String> parseAndFilterTimeSlots(String jsonString) {
-        List<String> filteredSlots = new ArrayList<>();
-
-        try {
-            JsonArray jsonArray = JsonParser.parseString(jsonString).getAsJsonArray();
-            for (int i = 0; i < jsonArray.size(); i++) {
-                JsonObject slotObject = jsonArray.get(i).getAsJsonObject();
-                String machine = slotObject.get("machineType").getAsString();
-                String slotDate = slotObject.get("date").getAsString();
-                String timeSlot = slotObject.get("slot").getAsString();
-                String status = slotObject.get("status").getAsString();
-
-
-                if (machine.equals(this.machineType) && slotDate.equals(this.date) && status.equalsIgnoreCase("VACANT")) {
-                    filteredSlots.add(timeSlot);
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return filteredSlots;
+        this.server = server;
     }
 
     public List<String> getAvailableTimeSlots() {
-        return timeSlots;
+        try {
+            return server.getTimeSlotsForDate(machineType, date);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+            return new ArrayList<>();
+        }
     }
 
-    public boolean bookTimeSlot(String timeSlot) {
-        if (!timeSlots.contains(timeSlot)) {
-            System.out.println("Time slot not available.");
-            return false;
+    public String getSlotStatus(String timeSlot) {
+        try {
+            return server.getSlotStatus(machineType, date, timeSlot);
+        } catch (RemoteException e) {
+            e.printStackTrace();
+            return null;
         }
-
-        timeSlots.remove(timeSlot); // Simulate booking
-        System.out.println("Slot booked successfully! (Not saved on server)");
-        return true;
     }
 
     public String getMachineType() {
@@ -89,5 +41,70 @@ public class TimeSlotModel {
 
     public String getDate() {
         return date;
+    }
+
+    @Override
+    public List<String[]> loadHistory(String username) throws RemoteException {
+        return null;
+    }
+
+    @Override
+    public void updateComment(String username, String machineType, String date, String time, String comment) throws RemoteException {
+
+    }
+
+    @Override
+    public void deleteBooking(String username, String machineType, String date, String time) throws RemoteException {
+
+    }
+
+    @Override
+    public List<String> getTimeSlotsForDate(String machineType, String date) throws RemoteException {
+        return null;
+    }
+
+    @Override
+    public String getSlotStatus(String machineType, String date, String timeSlot) throws RemoteException {
+        return null;
+    }
+
+    @Override
+    public boolean updateSlotStatus(String machineType, String date, String timeSlot, String status) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public String getTimeSlots() throws RemoteException {
+        return null;
+    }
+
+    @Override
+    public boolean validateUserCredentials(String username, String password) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public boolean checkUserDataExists(String username) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public boolean createUserSpecificJSON(String username) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public String getUserSpecificJSON(String username) throws RemoteException {
+        return null;
+    }
+
+    @Override
+    public boolean saveUserToJSON(String username, String password) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public void logAction(String message, String action) throws RemoteException {
+
     }
 }
