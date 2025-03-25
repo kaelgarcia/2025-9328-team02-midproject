@@ -1,7 +1,6 @@
 package client.owner.view;
 
 import client.owner.model.OwnerCalendarPanel;
-
 import javax.swing.*;
 import java.awt.*;
 import java.util.function.Consumer;
@@ -11,10 +10,14 @@ public class OwnerCalendarView extends JPanel {
     private OwnerHomePanel homePanel;
     private Consumer<Integer> onDateSelected; // Callback for date selection
 
-    public OwnerCalendarView(String machineType, OwnerHomePanel homePanel) {
+    public OwnerCalendarView(String machineType, OwnerHomePanel homePanel, Consumer<Integer> onDateSelected) {
         this.machineType = machineType;
         this.homePanel = homePanel;
+        this.onDateSelected = onDateSelected;
         this.initializeUI();
+    }
+
+    public OwnerCalendarView(String type, OwnerHomePanel homePanel) {
     }
 
     private void initializeUI() {
@@ -26,12 +29,8 @@ public class OwnerCalendarView extends JPanel {
 
         for (int day = 1; day <= 31; day++) {
             JButton dayButton = new JButton(String.valueOf(day));
-            final int finalDay = day;
-            dayButton.addActionListener(e -> {
-                if (onDateSelected != null) {
-                    onDateSelected.accept(finalDay);
-                }
-            });
+            final int selectedDay = day;
+            dayButton.addActionListener(e -> handleDateSelection(selectedDay));
             calendarPanel.add(dayButton);
         }
 
@@ -42,7 +41,16 @@ public class OwnerCalendarView extends JPanel {
         this.add(backButton, BorderLayout.SOUTH);
     }
 
+    private void handleDateSelection(int day) {
+        if (onDateSelected != null) {
+            onDateSelected.accept(day);
+            JOptionPane.showMessageDialog(this, "You selected: " + day, "Date Selected", JOptionPane.INFORMATION_MESSAGE);
+        }
+    }
+
     public void setOnDateSelected(Consumer<Integer> onDateSelected) {
         this.onDateSelected = onDateSelected;
     }
 }
+
+
