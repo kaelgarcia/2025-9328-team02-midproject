@@ -6,7 +6,6 @@ import client.customer.view.*;
 import client.registration.controller.LoginController;
 import client.registration.view.LoginPanel;
 import server.ServerInterface;
-import java.rmi.RemoteException;
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 
