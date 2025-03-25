@@ -1,19 +1,22 @@
 package client.customer.model;
 
+import server.ServerInterface;
+
 public class CustomerHomeModel {
     private final String username;
-    private final String userFilePath; // Changed from File to String
+    private final ServerInterface server;
 
-    public CustomerHomeModel(String username, String userFilePath) {
+    public CustomerHomeModel(String username, ServerInterface server) {
         this.username = username;
-        this.userFilePath = userFilePath;
+        this.server = server;
     }
 
     public String getUsername() {
         return username;
     }
 
-    public String getUserFilePath() {
-        return userFilePath;
+
+    public ServerInterface getServer() {
+        return server;
     }
 }
