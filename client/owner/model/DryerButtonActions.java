@@ -122,4 +122,74 @@ public class DryerButtonActions {
             e.printStackTrace();
         }
     }
+
+    public void deleteTimeFromSchedule(String time, File scheduleFile) {
+        if (!isValidTimeFormat(time)) {
+            System.out.println("Invalid time format.");
+            return;
+        }
+
+        try {
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
+            Document doc = builder.parse(scheduleFile);
+
+            NodeList daysList = doc.getElementsByTagName("day");
+            for (int i = 0; i < daysList.getLength(); i++) {
+                Element day = (Element) daysList.item(i);
+                NodeList timeSlots = day.getElementsByTagName("time");
+
+                for (int j = 0; j < timeSlots.getLength(); j++) {
+                    Element timeSlot = (Element) timeSlots.item(j);
+                    if (timeSlot.getAttribute("slot").equals(time)) {
+                        day.removeChild(timeSlot);
+                        saveToFile(doc, scheduleFile);
+                        System.out.println("Time slot " + time + " has been removed.");
+                        return;
+                    }
+                }
+            }
+
+            System.out.println("Time slot " + time + " not found.");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) {
+        List<String[]> filteredTransactions = new ArrayList<>();
+        for (String[] transaction : allTransactions) {
+            for (String field : transaction) {
+                if (field.toLowerCase().contains(searchQuery.toLowerCase())) {
+                    filteredTransactions.add(transaction);
+                    break;
+                }
+            }
+        }
+        return filteredTransactions;
+    }
+
+    public List<String[]> loadDryerTransactions() {
+        List<String[]> transactions = new ArrayList<>();
+
+        try {
+            File file = new File("dryer_transactions.csv");
+            if (!file.exists()) {
+                System.out.println("Transaction file not found.");
+                return transactions;
+            }
+
+            BufferedReader reader = new BufferedReader(new FileReader(file));
+            String line;
+            while ((line = reader.readLine()) != null) {
+                String[] transaction = line.split(",");
+                transactions.add(transaction);
+            }
+            reader.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+        return transactions;
+    }
 }

@@ -1,9 +1,7 @@
 package client.owner.view;
 
 import client.owner.controller.DryerController;
-import client.owner.controller.LaundryController;
 import client.owner.model.DryerButtonActions;
-import client.owner.model.LaundryButtonActions;
 
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
@@ -20,9 +18,12 @@ public class DryerPanel extends JPanel {
     public DryerPanel() {
         setLayout(new BorderLayout());
 
-        dryerButtonActions = new DryerButtonActions(); // Initialize actions
+        // Initialize actions
+        dryerButtonActions = new DryerButtonActions();
         File scheduleFile = new File("schedule.xml");
-        dryerController = new DryerController(this, dryerButtonActions, scheduleFile); // Pass `this` instead of creating a new panel
+
+        // Pass `this` instead of creating a new panel
+        dryerController = new DryerController(this, dryerButtonActions, scheduleFile);
 
         String[] columnNames = {"Customer", "Date", "Time"};
         tableModel = new DefaultTableModel(columnNames, 0);
@@ -48,12 +49,8 @@ public class DryerPanel extends JPanel {
         actionPanel.add(deleteTimeButton);
         add(actionPanel, BorderLayout.SOUTH);
 
-        dryerController.loadTransactions(); // Load data initially
-    }
-
-    public void setDryerController(DryerController dryerController) {
-        this.dryerController = dryerController;
-        this.dryerController.loadTransactions();
+        // Load data initially
+        dryerController.loadTransactions();
     }
 
     public void updateTable(List<String[]> transactions) {
@@ -72,26 +69,31 @@ public class DryerPanel extends JPanel {
     }
 
     private void showAddTimeDialog() {
-        String timeInput = JOptionPane.showInputDialog(this, "Enter Time (e.g., 8:30-9:30AM):");
+        String timeInput = JOptionPane.showInputDialog(this, "Enter Time (e.g., 08:30):");
         if (timeInput != null && !timeInput.isEmpty()) {
             System.out.println("Add Time clicked! Sending time: " + timeInput);
             if (dryerController != null) {
                 dryerController.addTime(timeInput);
             } else {
-                System.err.println("LaundryController is NULL!");
+                System.err.println("DryerController is NULL!");
             }
         }
     }
 
     private void showDeleteTimeDialog() {
-        String timeInput = JOptionPane.showInputDialog(this, "Enter Time to Delete (e.g., 8:30-9:30AM):");
+        String timeInput = JOptionPane.showInputDialog(this, "Enter Time to Delete (e.g., 08:30):");
         if (timeInput != null && !timeInput.isEmpty()) {
             System.out.println("Delete Time clicked! Sending time: " + timeInput);
             if (dryerController != null) {
                 dryerController.deleteTime(timeInput);
             } else {
-                System.err.println("LaundryController is NULL!");
+                System.err.println("DryerController is NULL!");
             }
         }
     }
+    public void setDryerController(DryerController dryerController) {
+        this.dryerController = dryerController;
+        this.dryerController.loadTransactions();
+    }
 }
+

@@ -11,6 +11,7 @@ import java.io.*;
 import java.rmi.Naming;
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.List;
 import java.util.regex.Pattern;
 import client.utility.ClientServerConnection;
 
@@ -22,8 +23,13 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
         super();
     }
 
-    private boolean isValidTimeFormat(String time) {
+    public boolean isValidTimeFormat(String time) {
         return TIME_FORMAT_PATTERN.matcher(time).matches();
+    }
+
+    @Override
+    public boolean isTimeAlreadyBooked(String time, String s) {
+        return false;
     }
 
     private boolean isTimeAlreadyBooked(String time, Document doc) {
@@ -93,6 +99,21 @@ public class LaundryButtonActions extends UnicastRemoteObject implements Laundry
         } catch (Exception e) {
             throw new RemoteException("Error deleting time slot: " + e.getMessage());
         }
+    }
+
+    @Override
+    public List<String[]> filterTransactions(List<String[]> allTransactions, String searchQuery) throws RemoteException {
+        return List.of();
+    }
+
+    @Override
+    public List<String[]> loadLaundryTransactions() throws RemoteException {
+        return List.of();
+    }
+
+    @Override
+    public boolean isTimeSlotAvailable(String time, String scheduleFilePath) throws RemoteException {
+        return false;
     }
 
     @Override

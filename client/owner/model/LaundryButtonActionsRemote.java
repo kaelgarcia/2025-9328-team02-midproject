@@ -13,4 +13,8 @@ public interface LaundryButtonActionsRemote extends Remote {
     // New methods for validation
     boolean isTimeSlotAvailable(String time, String scheduleFilePath) throws RemoteException;
     boolean isValidTimeFormat(String time) throws RemoteException;
+
+    boolean isTimeAlreadyBooked(String time, String s);
+
+    boolean bookTimeSlot(String time, String s, String type) throws RemoteException;
 }

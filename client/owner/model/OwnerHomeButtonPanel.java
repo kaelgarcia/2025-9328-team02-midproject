@@ -71,9 +71,8 @@ public class OwnerHomeButtonPanel extends JPanel {
             return;
         }
 
-        LaundryButtonActionsRemote laundryService;
         try {
-            laundryService = (LaundryButtonActionsRemote) java.rmi.Naming.lookup("rmi://localhost/LaundryService");
+            LaundryButtonActionsRemote laundryService = (LaundryButtonActionsRemote) java.rmi.Naming.lookup("rmi://localhost/LaundryService");
 
             // Check if time is already booked
             if (laundryService.isTimeAlreadyBooked(time, "schedule.xml")) {
@@ -116,12 +115,7 @@ public class OwnerHomeButtonPanel extends JPanel {
 
     public LaundryPanel createLaundryPanel() throws RemoteException {
         LaundryPanel laundryPanel = new LaundryPanel();
-        LaundryController laundryController = null;
-        try {
-            laundryController = new LaundryController(laundryPanel, new LaundryButtonActions(), scheduleFile);
-        } catch (RemoteException e) {
-            throw new RuntimeException(e);
-        }
+        LaundryController laundryController = new LaundryController(laundryPanel, new LaundryButtonActions(), scheduleFile);
         laundryPanel.setLaundryController(laundryController);
         return laundryPanel;
     }
