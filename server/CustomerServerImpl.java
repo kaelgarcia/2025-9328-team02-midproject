@@ -13,6 +13,24 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CustomerServerImpl extends UnicastRemoteObject implements ServerInterface {
+
+    /*
+     * TODO
+     * Make a separate interface for the customer, since there are some methods that can be used on the
+     * Owner side.
+     * For example (not necessarily in this program), function such as adding a schedule. There is a possibility
+     * of the customer can access the method of the owner, and will execute the method of the owner instead of the
+     * intended algorithm that is specific for the customer.
+     * It is possible there are function that can be utilized by both owner and customer. However, some functionalities
+     * need to be separate.
+     *
+     * You may use this implementation instead:
+     *          + An interface be used by both Customer and Owner
+     *          + An interface be used by only the Customer
+     *          + An interface be used by only the Owner
+     *          + An interface be used by only the Server
+     * */
+
     private static final Gson gson = new Gson();
     private final String userDataPath = "userData/";
     private final String scheduleFilePath = "schedule.json";

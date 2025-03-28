@@ -5,7 +5,10 @@ import java.rmi.server.UnicastRemoteObject;
 import java.util.HashMap;
 import java.util.Map;
 
+import client.registration.model.LoginUser;
+import client.registration.model.User;
 import client.registration.rmi.RegistrationServer;
+
 import com.google.gson.Gson;
 
 public class RegistrationServerImpl extends UnicastRemoteObject implements RegistrationServer {
@@ -31,6 +34,16 @@ public class RegistrationServerImpl extends UnicastRemoteObject implements Regis
         users.put(username, password);
         // In a real-world scenario, you'd also store the email and probably use a database
         return true;
+    }
+
+    @Override
+    public boolean authenticate(LoginUser user) throws RemoteException {
+        return false;
+    }
+
+    @Override
+    public boolean register(User user) throws RemoteException {
+        return false;
     }
 
     // Helper method to convert user data to JSON

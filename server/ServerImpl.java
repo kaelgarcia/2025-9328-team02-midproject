@@ -9,6 +9,7 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.FileReader;
 import java.io.IOException;
+import java.util.List;
 import java.util.Scanner;
 
 /**
@@ -20,6 +21,36 @@ public class ServerImpl extends UnicastRemoteObject implements ServerInterface {
 
     protected ServerImpl() throws RemoteException {
         super();
+    }
+
+    @Override
+    public List<String[]> loadHistory(String username) throws RemoteException {
+        return List.of();
+    }
+
+    @Override
+    public void updateComment(String username, String machineType, String date, String time, String comment) throws RemoteException {
+
+    }
+
+    @Override
+    public void deleteBooking(String username, String machineType, String date, String time) throws RemoteException {
+
+    }
+
+    @Override
+    public List<String> getTimeSlotsForDate(String machineType, String date) throws RemoteException {
+        return List.of();
+    }
+
+    @Override
+    public String getSlotStatus(String machineType, String date, String timeSlot) throws RemoteException {
+        return "";
+    }
+
+    @Override
+    public boolean updateSlotStatus(String machineType, String date, String timeSlot, String status) throws RemoteException {
+        return false;
     }
 
     @Override
