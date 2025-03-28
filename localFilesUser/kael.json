@@ -1,0 +1,24 @@
+{
+  "userProfile": {
+    "username": "kael",
+    "bookings": {
+      "booking": [
+        {
+          "machineType": "laundry",
+          "date": "March 2",
+          "time": "2:30-3:30PM"
+        },
+        {
+          "machineType": "laundry",
+          "date": "March 2",
+          "time": "3:30-4:30AM"
+        },
+        {
+          "machineType": "laundry",
+          "date": "March 2",
+          "time": "9:30-10:30PM"
+        }
+      ]
+    }
+  }
+}

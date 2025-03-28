@@ -1,0 +1,12 @@
+{
+  "userProfile": {
+    "username": "kyle",
+    "bookings": {
+      "booking": {
+        "machineType": "Dryer",
+        "date": "March 2",
+        "time": "10:30-11:30AM"
+      }
+    }
+  }
+}
