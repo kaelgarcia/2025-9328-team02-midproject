@@ -1,0 +1,1485 @@
+package client.controller;
+
+import client.model.RegistrationModel;
+import client.view.RegistrationView;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+
+import javax.swing.SwingUtilities;
+
+public class RegistrationController {
+    private RegistrationView view;
+    private RegistrationModel model;
+    private String currentUsername;
+    private List<Map<String, Object>> userBookings;
+    
+    public RegistrationController(RegistrationView view, RegistrationModel model) {
+        this.view = view;
+        this.model = model;
+        this.currentUsername = null;
+        this.userBookings = new ArrayList<>();
+        
+        try {
+            // Create admin user if it doesn't exist
+            createAdminUserIfNotExists();
+        } catch (Exception e) {
+            System.err.println("Error creating admin user: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Set up controller as a listener for data change events from the model
+        setupModelCallbacks();
+        
+        // Set up event listeners in the view
+        setupViewListeners();
+        
+        // Show login view initially
+        view.showLoginPanel();
+    }
+    
+    private void setupModelCallbacks() {
+        try {
+            // Register for callbacks using the existing mechanism in the model
+            model.addDataChangeListener("booking", () -> refreshUI("booking update"));
+            model.addDataChangeListener("timeSlot", () -> refreshUI("time slot update"));
+            model.addDataChangeListener("user", () -> refreshUI("user update"));
+            model.addDataChangeListener("systemLog", () -> refreshUI("system log update"));
+        } catch (Exception e) {
+            view.showError("Failed to set up model callbacks: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void setupViewListeners() {
+        // Login/Signup listeners
+        view.setLoginButtonListener(this::handleLogin);
+        view.setSignupButtonListener(this::handleSignup);
+        view.setLogoutButtonListener(e -> handleLogout());
+        view.setShowSignupButtonListener(e -> view.showSignupPanel());
+        view.setBackToLoginButtonListener(e -> view.showLoginPanel());
+        
+        // Book Laundry listeners
+        view.setBookButtonListener(this::handleBooking);
+        view.setCancelBookingListener(this::handleCancelBooking);
+        view.setMachineTypeChangeListener(this::updateTimeSlots);
+        view.setDateChangeListener(this::updateTimeSlots);
+        
+        // Set up admin controls
+        setupAdminControls();
+    }
+    
+    private void handleLogin(String username, String password) {
+        try {
+            // Attempt login
+            String userId = model.loginUser(username, password);
+            if (userId != null) {
+                // Successful login
+                currentUsername = username;
+                view.showDashboardPanel(username);
+                loadUserBookings();
+                view.displayResults("Login successful. Welcome, " + username + "!");
+                
+                // Initialize admin panels if user is admin
+                if ("admin".equals(username)) {
+                    loadAllBookingsForAdmin();
+                    loadUsersForAdmin();
+                    loadSystemLogs();
+                }
+                
+                // Log the login action
+                model.logActivity(userId, "LOGIN", "User logged in");
+                
+                // Refresh UI after login
+                refreshUI("login");
+            } else {
+                // Failed login
+                view.showError("Invalid username or password");
+            }
+        } catch (Exception e) {
+            view.showError("Login error: " + e.getMessage());
+        }
+    }
+    
+    private void handleSignup(String username, String password) {
+        try {
+            // Attempt registration
+            boolean success = model.registerUser(username, password);
+            if (success) {
+                // Successful registration
+                view.showMessage("Registration", "Account created successfully. Please log in.");
+                view.showLoginPanel();
+                
+                // Refresh UI in case admin is viewing user list
+                model.notifyDataListeners("user");
+            } else {
+                // Failed registration
+                view.showError("Username already exists");
+            }
+        } catch (Exception e) {
+            view.showError("Registration error: " + e.getMessage());
+        }
+    }
+    
+    private void handleLogout() {
+        try {
+            // Use the safe logOut method from the model
+            if (currentUsername != null) {
+                model.logOut(currentUsername, currentUsername);
+            }
+            
+            // Reset state
+            currentUsername = null;
+            userBookings.clear();
+            
+            // Show login panel
+            view.showLoginPanel();
+            view.displayResults("Logged out successfully");
+        } catch (Exception e) {
+            view.showError("Logout error: " + e.getMessage());
+        }
+    }
+    
+    private void handleBooking(String machineType, String dateTime) {
+        if (currentUsername == null) {
+            view.showError("You must be logged in to book");
+            return;
+        }
+        
+        try {
+            // Split dateTime into date and time slot
+            String[] parts = dateTime.split(" ", 2);
+            String date = "";
+            String timeSlot = "";
+            
+            if (parts.length >= 2) {
+                // Extract date without year and time slot without day info
+                date = parts[0]; // Just "April"
+                
+                // The rest is either "1 (Tuesday) 08:30-09:30 AM" or just time
+                String remainder = parts[1];
+                int closeParen = remainder.indexOf(')');
+                if (closeParen >= 0) {
+                    // Format: "1 (Tuesday) 08:30-09:30 AM"
+                    // Get just the day part like "1 (Tuesday)"
+                    String dayPart = remainder.substring(0, closeParen + 1);
+                    date += " " + dayPart;
+                    
+                    // Get just the time part like "08:30-09:30 AM"
+                    if (closeParen + 1 < remainder.length()) {
+                        timeSlot = remainder.substring(closeParen + 1).trim();
+                    } else {
+                        timeSlot = "Unknown";
+                    }
+                } else {
+                    // Format already separated like "April 1 (Tuesday)" and "08:30-09:30 AM"
+                    timeSlot = remainder;
+                }
+            } else {
+                date = dateTime;
+                timeSlot = "Unknown";
+            }
+            
+            // Check if this time slot is already booked for this machine type
+            Map<String, Object> searchCriteria = new HashMap<>();
+            searchCriteria.put("machineType", machineType);
+            searchCriteria.put("date", date);
+            searchCriteria.put("timeSlot", timeSlot);
+            
+            List<Map<String, Object>> existingBookings = model.searchRecords("booking", searchCriteria);
+            if (existingBookings != null && !existingBookings.isEmpty()) {
+                view.showError("This time slot is already booked. Please select another time slot.");
+                return;
+            }
+            
+            // Create a booking record
+            Map<String, Object> bookingData = new HashMap<>();
+            bookingData.put("username", currentUsername);
+            bookingData.put("machineType", machineType);
+            bookingData.put("date", date);
+            bookingData.put("timeSlot", timeSlot);
+            bookingData.put("status", "Pending");
+            bookingData.put("id", "LB" + UUID.randomUUID().toString().substring(0, 8));
+            
+            // Add booking record
+            boolean success = model.addRecord("booking", bookingData);
+            
+            if (success) {
+                view.displayResults("Booking created successfully! Status: Pending");
+                
+                // Log the booking action
+                model.logActivity(currentUsername, "BOOK", 
+                    "Booked " + machineType + " for " + date + " at " + timeSlot);
+                    
+                // Refresh UI immediately instead of just loadUserBookings
+                refreshUI("booking creation");
+            } else {
+                view.showError("Failed to create booking");
+            }
+        } catch (Exception e) {
+            view.showError("Booking error: " + e.getMessage());
+        }
+    }
+    
+    private void handleCancelBooking(String bookingId) {
+        if (currentUsername == null) {
+            view.showError("You must be logged in to cancel a booking");
+            return;
+        }
+        
+        try {
+            // Create criteria to find the booking
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", bookingId);
+            
+            // Delete the booking
+            boolean success = model.deleteRecord("booking", criteria);
+            
+            if (success) {
+                view.displayResults("Booking cancelled successfully!");
+                
+                // Log the cancellation action
+                model.logActivity(currentUsername, "CANCEL", 
+                    "Cancelled booking " + bookingId);
+                    
+                // Refresh UI immediately instead of just loadUserBookings
+                refreshUI("booking cancellation");
+            } else {
+                view.showError("Failed to cancel booking");
+            }
+        } catch (Exception e) {
+            view.showError("Cancellation error: " + e.getMessage());
+        }
+    }
+    
+    private void updateTimeSlots(String changedValue) {
+        try {
+            String machineType = view.getMachineTypeSelection();
+            String date = view.getDateSelection();
+            
+            // Get all bookings for this machine and date to filter out booked slots
+            Map<String, Object> bookingCriteria = new HashMap<>();
+            bookingCriteria.put("machineType", machineType);
+            bookingCriteria.put("date", date);
+            
+            List<Map<String, Object>> existingBookings = model.searchRecords("booking", bookingCriteria);
+            Set<String> bookedTimeSlots = new HashSet<>();
+            List<Map<String, String>> bookedSlotsInfo = new ArrayList<>();
+            
+            if (existingBookings != null) {
+                for (Map<String, Object> booking : existingBookings) {
+                    String timeSlot = (String) booking.get("timeSlot");
+                    String status = (String) booking.get("status");
+                    String username = (String) booking.get("username");
+                    
+                    // Only consider confirmed and pending bookings as unavailable
+                    if (timeSlot != null && 
+                       (status.equals("Confirmed") || status.equals("Pending"))) {
+                        bookedTimeSlots.add(timeSlot);
+                        
+                        // Create a map with time slot and actual username to display
+                        Map<String, String> slotInfo = new HashMap<>();
+                        slotInfo.put("timeSlot", timeSlot);
+                        slotInfo.put("username", username != null ? username : "Unknown");
+                        slotInfo.put("status", status);
+                        bookedSlotsInfo.add(slotInfo);
+                    }
+                }
+            }
+            
+            // Get available time slots for this machine and date
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("machineType", machineType);
+            criteria.put("date", date);
+            criteria.put("status", "Available");
+            
+            List<Map<String, Object>> availableSlots = model.searchRecords("timeSlot", criteria);
+            List<String> timeSlots = new ArrayList<>();
+            
+            // Extract time slot strings that aren't already booked
+            if (availableSlots != null) {
+                for (Map<String, Object> slot : availableSlots) {
+                    String timeSlot = (String) slot.get("timeSlot");
+                    if (timeSlot != null && !bookedTimeSlots.contains(timeSlot)) {
+                        timeSlots.add(timeSlot);
+                    }
+                }
+            }
+            
+            // If no available slots, use default sample slots that aren't already booked
+            if (timeSlots.isEmpty()) {
+                String[] defaultSlots = {
+                    "08:30-09:30 AM", "09:30-10:30 AM", "10:30-11:30 AM", 
+                    "11:30-12:30 PM", "12:30-01:30 PM", "01:30-02:30 PM",
+                    "02:30-03:30 PM", "03:30-04:30 PM", "04:30-05:30 PM"
+                };
+                for (String slot : defaultSlots) {
+                    if (!bookedTimeSlots.contains(slot)) {
+                        timeSlots.add(slot);
+                    }
+                }
+            }
+            
+            // Update the time slot list in the view with both available and unavailable slots
+            view.updateTimeSlotsWithUnavailableAndUser(timeSlots, bookedSlotsInfo);
+            
+        } catch (Exception e) {
+            System.err.println("Error updating time slots: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void loadUserBookings() {
+        if (currentUsername == null) {
+            return;
+        }
+        
+        // Clear existing bookings from the UI
+        view.clearBookingsTable();
+        
+        try {
+            // Create search criteria for current user
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("username", currentUsername);
+            
+            // Search for user's bookings
+            List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+            
+            if (bookings == null || bookings.isEmpty()) {
+                view.displayResults("No bookings found for " + currentUsername);
+                return;
+            }
+            
+            // Sort bookings by date and time for better display
+            bookings.sort((b1, b2) -> {
+                String date1 = (String) b1.get("date");
+                String date2 = (String) b2.get("date");
+                String time1 = (String) b1.get("timeSlot");
+                String time2 = (String) b2.get("timeSlot");
+                
+                // Compare dates first
+                int dateCompare = date1.compareTo(date2);
+                if (dateCompare != 0) {
+                    return dateCompare;
+                }
+                
+                // If dates are the same, compare times
+                return time1.compareTo(time2);
+            });
+            
+            // Add bookings to the table
+            for (Map<String, Object> booking : bookings) {
+                String machineType = (String) booking.get("machineType");
+                String date = (String) booking.get("date");
+                String timeSlot = (String) booking.get("timeSlot");
+                String status = (String) booking.get("status");
+                String id = (String) booking.get("id");
+                
+                // Format date and time slot for display
+                String formattedDate = view.formatDate(date);
+                String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                
+                view.addBooking(machineType, formattedDate, formattedTimeSlot, status, id);
+            }
+            
+        } catch (Exception e) {
+            view.showError("Error loading bookings: " + e.getMessage());
+        }
+    }
+    
+    public void loadAllBookingsForAdmin() {
+        if (!"admin".equals(currentUsername)) {
+            view.showError("Only admin can view all bookings");
+            return;
+        }
+        
+        try {
+            // Clear existing data
+            view.clearAllBookingsTable();
+            
+            // Get all booking records
+            List<Map<String, Object>> bookings = model.searchRecords("booking", new HashMap<>());
+            
+            if (bookings == null || bookings.isEmpty()) {
+                view.displayResults("No bookings found in the system");
+                return;
+            }
+            
+            // Filter out invalid bookings
+            List<Map<String, Object>> validBookings = new ArrayList<>();
+            for (Map<String, Object> booking : bookings) {
+                String username = (String) booking.get("username");
+                String machineType = (String) booking.get("machineType");
+                String date = (String) booking.get("date");
+                String timeSlot = (String) booking.get("timeSlot");
+                
+                if (username != null && machineType != null && date != null && timeSlot != null) {
+                    validBookings.add(booking);
+                }
+            }
+            
+            // Sort bookings by date and time slot for better readability
+            if (!validBookings.isEmpty()) {
+                validBookings.sort((a, b) -> {
+                    String dateA = (String) a.get("date");
+                    String dateB = (String) b.get("date");
+                    if (dateA.equals(dateB)) {
+                        String timeA = (String) a.get("timeSlot");
+                        String timeB = (String) b.get("timeSlot");
+                        return timeA.compareTo(timeB);
+                    }
+                    return dateA.compareTo(dateB);
+                });
+            }
+            
+            int totalLoaded = 0;
+            
+            // Add each booking to the table
+            for (Map<String, Object> booking : validBookings) {
+                String username = (String) booking.get("username");
+                String machineType = (String) booking.get("machineType");
+                String date = (String) booking.get("date");
+                String timeSlot = (String) booking.get("timeSlot");
+                String status = (String) booking.get("status");
+                String id = (String) booking.get("id");
+                
+                if (status == null) {
+                    status = "Pending"; // Default status
+                }
+                
+                // Format date and time slot for display
+                String formattedDate = view.formatDate(date);
+                String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                
+                view.addBookingToAllBookingsTable(username, machineType, formattedDate, formattedTimeSlot, status, id);
+                totalLoaded++;
+            }
+            
+            view.displayResults("Loaded " + totalLoaded + " bookings from the system");
+        } catch (Exception e) {
+            view.showError("Error loading bookings: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void handleDeleteBooking(String bookingId) {
+        if (!"admin".equals(currentUsername)) {
+            view.showError("Only admin can delete bookings");
+            return;
+        }
+        
+        try {
+            // Delete the booking record
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", bookingId);
+            boolean success = model.deleteRecord("booking", criteria);
+            
+            if (success) {
+                // Reload the bookings table
+                loadAllBookingsForAdmin();
+                view.displayResults("Booking deleted successfully");
+                
+                // Log the action
+                model.logActivity(currentUsername, "DELETE_BOOKING", "Admin deleted booking: " + bookingId);
+                
+                // Full UI refresh
+                refreshUI("booking deletion");
+            } else {
+                view.showError("Failed to delete booking");
+            }
+        } catch (Exception e) {
+            view.showError("Error deleting booking: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    public void loadUsersForAdmin() {
+        if (!"admin".equals(currentUsername)) {
+            view.showError("You must be an admin to manage users");
+            return;
+        }
+        
+        view.clearUserManagementTable();
+        
+        try {
+            // Get all user records from the system
+            List<Map<String, Object>> users = model.searchRecords("user", new HashMap<>());
+            
+            if (users == null || users.isEmpty()) {
+                view.displayResults("No users found in the system");
+                return;
+            }
+            
+            // Filter out invalid users before sorting
+            List<Map<String, Object>> validUsers = new ArrayList<>();
+            for (Map<String, Object> user : users) {
+                String username = (String) user.get("username");
+                if (username != null && !username.trim().isEmpty()) {
+                    validUsers.add(user);
+                }
+            }
+            
+            // Sort users alphabetically by username
+            if (!validUsers.isEmpty()) {
+                validUsers.sort((a, b) -> {
+                    String usernameA = (String) a.get("username");
+                    String usernameB = (String) b.get("username");
+                    return usernameA.compareTo(usernameB);
+                });
+            }
+            
+            int totalUsers = 0;
+            
+            for (Map<String, Object> user : validUsers) {
+                // Extract user data from records
+                String username = (String) user.get("username");
+                
+                // Determine user role (admin is the only admin, all others are regular users)
+                String role = "admin".equals(username) ? "Admin" : "Regular";
+                
+                // Get user status, default to "Active" if not specified
+                String status = user.containsKey("status") ? (String) user.get("status") : "Active";
+                
+                // Get bookings count for this user
+                Map<String, Object> criteria = new HashMap<>();
+                criteria.put("username", username);
+                List<Map<String, Object>> userBookings = model.searchRecords("booking", criteria);
+                int bookingsCount = userBookings != null ? userBookings.size() : 0;
+                
+                // Get user ID for operations
+                String userId = (String) user.get("id");
+                if (userId == null) {
+                    userId = UUID.randomUUID().toString(); // Generate ID if missing
+                    user.put("id", userId);
+                    // Update the user record with the new ID
+                    Map<String, Object> updateCriteria = new HashMap<>();
+                    updateCriteria.put("username", username);
+                    model.updateRecord("user", updateCriteria, user);
+                }
+                
+                // Add user to the management table
+                view.addUserToUserManagementTable(username, role, status, String.valueOf(bookingsCount), userId);
+                totalUsers++;
+            }
+            
+            view.displayResults("Loaded " + totalUsers + " users from the system");
+        } catch (Exception e) {
+            view.showError("Error loading users: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void loadSystemLogs() {
+        try {
+            List<String> logs = model.getServerLogs();
+            
+            if (logs == null || logs.isEmpty()) {
+                return;
+            }
+            
+            view.clearSystemLogsTable();
+            
+            for (String log : logs) {
+                // Parse log format: [timestamp] userId - action: details
+                if (log.startsWith("[") && log.contains("]")) {
+                    int closeBracket = log.indexOf("]");
+                    String timestamp = log.substring(1, closeBracket);
+                    
+                    String remainder = log.substring(closeBracket + 2);
+                    String[] parts = remainder.split(" - ", 2);
+                    
+                    if (parts.length == 2) {
+                        String userId = parts[0];
+                        
+                        String[] actionParts = parts[1].split(": ", 2);
+                        if (actionParts.length == 2) {
+                            String action = actionParts[0];
+                            String details = actionParts[1];
+                            
+                            view.addLogToSystemLogsTable(timestamp, userId, action, details);
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            view.showError("Error loading system logs: " + ex.getMessage());
+        }
+    }
+    
+    // Additional setup method for admin functionality
+    private void setupAdminControls() {
+        try {
+            // Set up the booking management listeners
+            view.setApproveBookingListener(this::handleApproveBooking);
+            view.setRejectBookingListener(this::handleRejectBooking);
+            view.setDeleteBookingListener(this::handleDeleteBooking);
+            
+            // Set up the user management listeners
+            view.setAddUserListener(this::handleAddUser);
+            view.setEditUserListener(this::handleEditUser);
+            view.setBlockUserListener(this::handleBlockUser);
+            view.setResetPasswordListener(this::handleResetPassword);
+            
+            // Set up the time slot management listeners
+            view.setAddTimeSlotListener(this::handleAddTimeSlot);
+            view.setRemoveTimeSlotListener(this::handleRemoveTimeSlot);
+            view.setBlockTimeSlotListener(this::handleBlockTimeSlot);
+            
+            // Set up the system logs management listeners
+            view.setExportLogsListener(this::handleExportLogs);
+            view.setClearLogsListener(this::handleClearLogs);
+            view.setFilterLogsListener(this::handleFilterLogs);
+            
+            // Set up machine type and date change listeners for time slot management
+            view.setAdminMachineTypeChangeListener(type -> {
+                loadTimeSlotsForAdmin();
+            });
+            
+            view.setAdminDateChangeListener(date -> {
+                loadTimeSlotsForAdmin();
+            });
+        } catch (Exception e) {
+            view.showError("Error setting up admin controls: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    private void loadTimeSlots() {
+        try {
+            // Get selected machine type and date
+            String machineType = view.getMachineTypeSelection();
+            String date = view.getDateSelection();
+            
+            // Get available time slots for this machine type and date
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("machineType", machineType);
+            criteria.put("date", date);
+            
+            // Track both available and booked slots
+            List<String> availableSlots = new ArrayList<>();
+            List<Map<String, String>> bookedSlotsInfo = new ArrayList<>();
+            
+            // First check existing time slots
+            List<Map<String, Object>> timeSlots = model.searchRecords("timeSlot", criteria);
+            
+            if (timeSlots != null) {
+                for (Map<String, Object> slot : timeSlots) {
+                    String status = (String) slot.get("status");
+                    String timeSlot = (String) slot.get("timeSlot");
+                    
+                    // Format the time slot for cleaner display
+                    String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                    
+                    if ("Available".equals(status)) {
+                        availableSlots.add(formattedTimeSlot);
+                    } else {
+                        // For slots not marked as available in timeSlot records,
+                        // we need to find who booked them if they're in booking records
+                        Map<String, String> slotInfo = new HashMap<>();
+                        slotInfo.put("timeSlot", formattedTimeSlot);
+                        slotInfo.put("username", "System"); // Default to System for maintenance slots
+                        slotInfo.put("status", status);
+                        bookedSlotsInfo.add(slotInfo);
+                    }
+                }
+            }
+            
+            // Also check bookings to see what's already booked and by whom
+            List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+            
+            if (bookings != null) {
+                for (Map<String, Object> booking : bookings) {
+                    String timeSlot = (String) booking.get("timeSlot");
+                    String username = (String) booking.get("username");
+                    String status = (String) booking.get("status");
+                    String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                    
+                    // Remove from available if it's in the bookings
+                    availableSlots.remove(formattedTimeSlot);
+                    
+                    // Create booking info with the actual username
+                    Map<String, String> slotInfo = new HashMap<>();
+                    slotInfo.put("timeSlot", formattedTimeSlot);
+                    slotInfo.put("username", username);
+                    slotInfo.put("status", status);
+                    
+                    // Check if this slot already exists in the bookedSlotsInfo list
+                    boolean found = false;
+                    for (int i = 0; i < bookedSlotsInfo.size(); i++) {
+                        Map<String, String> existingSlot = bookedSlotsInfo.get(i);
+                        if (existingSlot.get("timeSlot").equals(formattedTimeSlot)) {
+                            // Replace with the actual booking info
+                            bookedSlotsInfo.set(i, slotInfo);
+                            found = true;
+                            break;
+                        }
+                    }
+                    
+                    // If not found, add it
+                    if (!found) {
+                        bookedSlotsInfo.add(slotInfo);
+                    }
+                }
+            }
+            
+            // If no time slots found, add default ones (all available)
+            if (availableSlots.isEmpty() && bookedSlotsInfo.isEmpty()) {
+                String[] defaultSlots = {
+                    "08:30-09:30 AM", "09:30-10:30 AM", "10:30-11:30 AM", 
+                    "11:30-12:30 PM", "12:30-01:30 PM", "01:30-02:30 PM",
+                    "02:30-03:30 PM", "03:30-04:30 PM", "04:30-05:30 PM"
+                };
+                
+                for (String slot : defaultSlots) {
+                    availableSlots.add(slot);
+                }
+            }
+            
+            // Update the view with both available and booked slots
+            view.updateTimeSlotsWithUnavailableAndUser(availableSlots, bookedSlotsInfo);
+            
+        } catch (Exception e) {
+            view.showError("Error loading time slots: " + e.getMessage());
+        }
+    }
+    
+    private void handleApproveBooking(String bookingId) {
+        try {
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", bookingId);
+            
+            // First retrieve the booking details
+            List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+            if (bookings == null || bookings.isEmpty()) {
+                view.showError("Booking not found");
+                return;
+            }
+            
+            Map<String, Object> bookingData = bookings.get(0);
+            String username = (String) bookingData.get("username");
+            
+            // Keep all existing booking data, only update the status
+            Map<String, Object> updateData = new HashMap<>(bookingData);
+            updateData.put("status", "Confirmed");
+            
+            boolean success = model.updateRecord("booking", criteria, updateData);
+            if (success) {
+                view.displayResults("Booking " + bookingId + " has been approved");
+                
+                // Log this action for both admin and user records
+                model.logActivity(currentUsername, "APPROVE_BOOKING", 
+                    "Admin approved booking " + bookingId + " for user " + username);
+                
+                // Full UI refresh
+                refreshUI("booking approval");
+            } else {
+                view.showError("Failed to approve booking");
+            }
+        } catch (Exception ex) {
+            view.showError("Error approving booking: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleRejectBooking(String bookingId) {
+        try {
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", bookingId);
+            
+            // First retrieve the booking details
+            List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+            if (bookings == null || bookings.isEmpty()) {
+                view.showError("Booking not found");
+                return;
+            }
+            
+            Map<String, Object> bookingData = bookings.get(0);
+            String username = (String) bookingData.get("username");
+            
+            // Keep all existing booking data, only update the status
+            Map<String, Object> updateData = new HashMap<>(bookingData);
+            updateData.put("status", "Rejected");
+            
+            boolean success = model.updateRecord("booking", criteria, updateData);
+            if (success) {
+                view.displayResults("Booking " + bookingId + " has been rejected");
+                
+                // Log this action for both admin and user records
+                model.logActivity(currentUsername, "REJECT_BOOKING", 
+                    "Admin rejected booking " + bookingId + " for user " + username);
+                
+                // Full UI refresh
+                refreshUI("booking rejection");
+            } else {
+                view.showError("Failed to reject booking");
+            }
+        } catch (Exception ex) {
+            view.showError("Error rejecting booking: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleAddUser() {
+        try {
+            String username = view.getUsernameInput("Enter new username:");
+            if (username == null || username.trim().isEmpty()) {
+                return;
+            }
+            
+            String password = view.getPasswordInput("Enter password for new user:");
+            if (password == null || password.trim().isEmpty()) {
+                return;
+            }
+            
+            Map<String, Object> userData = new HashMap<>();
+            userData.put("username", username);
+            userData.put("password", password);
+            userData.put("role", "Regular");
+            userData.put("status", "Active");
+            userData.put("id", UUID.randomUUID().toString());
+            
+            boolean success = model.addRecord("user", userData);
+            if (success) {
+                view.displayResults("User " + username + " has been added");
+                
+                // Log the activity
+                model.logActivity(currentUsername, "ADD_USER", "Added user: " + username);
+                
+                // Refresh UI
+                refreshUI("user addition");
+            } else {
+                view.showError("Failed to add user");
+            }
+        } catch (Exception ex) {
+            view.showError("Error adding user: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleEditUser(String userId) {
+        try {
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", userId);
+            
+            List<Map<String, Object>> users = model.searchRecords("user", criteria);
+            if (users == null || users.isEmpty()) {
+                view.showError("User not found");
+                return;
+            }
+            
+            Map<String, Object> user = users.get(0);
+            String username = (String) user.get("username");
+            
+            String newUsername = view.getUsernameInput("Edit username (currently " + username + "):");
+            if (newUsername == null || newUsername.trim().isEmpty()) {
+                return;
+            }
+            
+            Map<String, Object> updateData = new HashMap<>(user);
+            updateData.put("username", newUsername);
+            
+            boolean success = model.updateRecord("user", criteria, updateData);
+            if (success) {
+                view.displayResults("User " + username + " has been updated to " + newUsername);
+                
+                // Log the activity
+                model.logActivity(currentUsername, "EDIT_USER", 
+                    "Changed username from " + username + " to " + newUsername);
+                
+                // Refresh UI
+                refreshUI("user edit");
+            } else {
+                view.showError("Failed to update user");
+            }
+        } catch (Exception ex) {
+            view.showError("Error updating user: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleBlockUser(String userId) {
+        try {
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", userId);
+            
+            List<Map<String, Object>> users = model.searchRecords("user", criteria);
+            if (users == null || users.isEmpty()) {
+                view.showError("User not found");
+                return;
+            }
+            
+            Map<String, Object> user = users.get(0);
+            String username = (String) user.get("username");
+            String currentStatus = user.containsKey("status") ? (String) user.get("status") : "Active";
+            String newStatus = "Active".equals(currentStatus) ? "Blocked" : "Active";
+            
+            Map<String, Object> updateData = new HashMap<>(user);
+            updateData.put("status", newStatus);
+            
+            boolean success = model.updateRecord("user", criteria, updateData);
+            if (success) {
+                view.displayResults("User " + username + " status changed to " + newStatus);
+                
+                // Log this action
+                model.logActivity(currentUsername, "BLOCK_USER", "Changed user " + username + " status to " + newStatus);
+                
+                // Refresh UI
+                refreshUI("user status change");
+            } else {
+                view.showError("Failed to update user status");
+            }
+        } catch (Exception ex) {
+            view.showError("Error updating user status: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleResetPassword(String userId) {
+        try {
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", userId);
+            
+            List<Map<String, Object>> users = model.searchRecords("user", criteria);
+            if (users == null || users.isEmpty()) {
+                view.showError("User not found");
+                return;
+            }
+            
+            Map<String, Object> user = users.get(0);
+            String username = (String) user.get("username");
+            
+            String newPassword = view.getPasswordInput("Enter new password for " + username + ":");
+            if (newPassword == null || newPassword.trim().isEmpty()) {
+                return;
+            }
+            
+            Map<String, Object> updateData = new HashMap<>(user);
+            updateData.put("password", newPassword);
+            
+            boolean success = model.updateRecord("user", criteria, updateData);
+            if (success) {
+                view.displayResults("Password for user " + username + " has been reset");
+                
+                // Log this action
+                model.logActivity(currentUsername, "RESET_PASSWORD", "Reset password for user " + username);
+                
+                // No UI refresh needed for password change as it doesn't affect any visual elements
+            } else {
+                view.showError("Failed to reset password");
+            }
+        } catch (Exception ex) {
+            view.showError("Error resetting password: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleAddTimeSlot() {
+        try {
+            // Get time slot details from the view
+            String machineType = view.getMachineTypeSelection();
+            String date = view.getDateSelection();
+            String timeSlot = view.getSelectedTimeSlotText();
+            String status = view.getSelectedTimeSlotStatus();
+            
+            if (machineType == null || date == null || timeSlot == null || status == null) {
+                view.showError("Please select all required fields");
+                return;
+            }
+            
+            // Check if this time slot already exists
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("machineType", machineType);
+            criteria.put("date", date);
+            criteria.put("timeSlot", timeSlot);
+            
+            List<Map<String, Object>> existingSlots = model.searchRecords("timeSlot", criteria);
+            if (existingSlots != null && !existingSlots.isEmpty()) {
+                view.showError("This time slot already exists. Cannot add duplicate time slots.");
+                return;
+            }
+            
+            // Also check bookings to avoid conflicts
+            List<Map<String, Object>> existingBookings = model.searchRecords("booking", criteria);
+            if (existingBookings != null && !existingBookings.isEmpty()) {
+                view.showError("This time slot is already booked. Cannot add a conflicting time slot.");
+                return;
+            }
+            
+            // Create a new time slot record
+            Map<String, Object> newTimeSlot = new HashMap<>();
+            newTimeSlot.put("machineType", machineType);
+            newTimeSlot.put("date", date);
+            newTimeSlot.put("timeSlot", timeSlot);
+            newTimeSlot.put("status", status);
+            newTimeSlot.put("id", UUID.randomUUID().toString());
+            
+            // Add the time slot record to the system
+            boolean success = model.addRecord("timeSlot", newTimeSlot);
+            
+            if (success) {
+                view.displayResults("Time slot added successfully");
+                
+                // Log the activity
+                model.logActivity(currentUsername, "ADD_TIMESLOT",
+                    "Added " + machineType + " time slot for " + date + " at " + timeSlot + " with status " + status);
+                
+                // Refresh UI
+                refreshUI("time slot addition");
+            } else {
+                view.showError("Failed to add time slot");
+            }
+        } catch (Exception ex) {
+            view.showError("Error adding time slot: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleRemoveTimeSlot(String timeSlotId) {
+        try {
+            if (timeSlotId == null || timeSlotId.isEmpty()) {
+                view.showError("No time slot selected");
+                return;
+            }
+            
+            // Confirm the deletion
+            boolean confirmed = view.showConfirmDialog("Confirm Deletion", 
+                "Are you sure you want to delete this time slot?");
+                
+            if (!confirmed) {
+                return;
+            }
+            
+            // Get the time slot details for logging
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", timeSlotId);
+            List<Map<String, Object>> timeSlots = model.searchRecords("timeSlot", criteria);
+            
+            Map<String, Object> timeSlot = timeSlots != null && !timeSlots.isEmpty() 
+                ? timeSlots.get(0) 
+                : null;
+                
+            // Delete the time slot
+            boolean success = model.deleteRecord("timeSlot", criteria);
+            
+            if (success) {
+                view.displayResults("Time slot removed successfully");
+                
+                // Log the activity
+                if (timeSlot != null) {
+                    String machineType = (String) timeSlot.get("machineType");
+                    String date = (String) timeSlot.get("date");
+                    String time = (String) timeSlot.get("timeSlot");
+                    
+                    model.logActivity(currentUsername, "REMOVE_TIMESLOT",
+                        "Removed " + machineType + " time slot for " + date + " at " + time);
+                } else {
+                    model.logActivity(currentUsername, "REMOVE_TIMESLOT",
+                        "Removed time slot with ID " + timeSlotId);
+                }
+                
+                // Refresh UI
+                refreshUI("time slot removal");
+            } else {
+                view.showError("Failed to remove time slot");
+            }
+        } catch (Exception ex) {
+            view.showError("Error removing time slot: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleBlockTimeSlot(String timeSlotId) {
+        try {
+            if (timeSlotId == null || timeSlotId.isEmpty()) {
+                // Get the selected row from the time slot table
+                int selectedRow = view.getSelectedTimeSlotRow();
+                if (selectedRow == -1) {
+                    view.showError("Please select a time slot first");
+                    return;
+                }
+                
+                // Get the ID from the selected row
+                timeSlotId = view.getTimeSlotIdFromRow(selectedRow);
+                if (timeSlotId == null || timeSlotId.isEmpty()) {
+                    view.showError("Cannot find time slot ID. Please select a valid time slot.");
+                    return;
+                }
+            }
+            
+            // Get the new status from the dropdown
+            String newStatus = view.getSelectedChangeStatus();
+            if (newStatus == null || newStatus.isEmpty()) {
+                view.showError("Please select a status to change to");
+                return;
+            }
+            
+            // Check if the time slot exists
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("id", timeSlotId);
+            
+            List<Map<String, Object>> timeSlots = model.searchRecords("timeSlot", criteria);
+            if (timeSlots == null || timeSlots.isEmpty()) {
+                // Time slot not found in the time slot records
+                // Try to find it in bookings instead
+                List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+                if (bookings == null || bookings.isEmpty()) {
+                    view.showError("Time slot not found");
+                    return;
+                }
+                
+                // If it's a booking, we need a different approach
+                Map<String, Object> booking = bookings.get(0);
+                
+                // Ask for confirmation if we're changing a booked slot
+                boolean confirmed = view.showConfirmDialog("Change Booked Slot", 
+                    "This slot is currently booked by user " + booking.get("username") + 
+                    ". Changing its status will affect the booking. Continue?");
+                    
+                if (!confirmed) {
+                    return;
+                }
+                
+                // Create a new time slot based on this booking
+                Map<String, Object> newTimeSlot = new HashMap<>();
+                newTimeSlot.put("machineType", booking.get("machineType"));
+                newTimeSlot.put("date", booking.get("date"));
+                newTimeSlot.put("timeSlot", booking.get("timeSlot"));
+                newTimeSlot.put("status", newStatus);
+                newTimeSlot.put("id", UUID.randomUUID().toString());
+                
+                // Add the time slot record with the new status
+                boolean success = model.addRecord("timeSlot", newTimeSlot);
+                
+                if (success) {
+                    // Optionally, update the booking status to reflect the change
+                    Map<String, Object> updatedBooking = new HashMap<>(booking);
+                    updatedBooking.put("status", "Cancelled");
+                    updatedBooking.put("comments", "Slot status changed to " + newStatus);
+                    model.updateRecord("booking", criteria, updatedBooking);
+                    
+                    view.displayResults("Changed time slot status to " + newStatus + " and updated booking.");
+                    
+                    // Log the activity
+                    String machineType = (String) booking.get("machineType");
+                    String date = (String) booking.get("date");
+                    String time = (String) booking.get("timeSlot");
+                    
+                    model.logActivity(currentUsername, "CHANGE_TIMESLOT_STATUS",
+                        "Changed " + machineType + " time slot for " + date + 
+                        " at " + time + " to " + newStatus + " (was booked)");
+                    
+                    // Refresh UI
+                    refreshUI("time slot status change");
+                } else {
+                    view.showError("Failed to update time slot status");
+                }
+                
+                return;
+            }
+            
+            // We found the time slot in the time slot records, so we can update it directly
+            Map<String, Object> timeSlot = timeSlots.get(0);
+            
+            // Create update data with all existing fields to preserve them
+            Map<String, Object> updateData = new HashMap<>(timeSlot);
+            // Then update only the status
+            updateData.put("status", newStatus);
+            
+            boolean success = model.updateRecord("timeSlot", criteria, updateData);
+            if (success) {
+                view.displayResults("Time slot status changed to: " + newStatus);
+                
+                // Log this action
+                String machineType = (String) timeSlot.get("machineType");
+                String date = (String) timeSlot.get("date");
+                String time = (String) timeSlot.get("timeSlot");
+                
+                model.logActivity(currentUsername, "CHANGE_TIMESLOT_STATUS", 
+                    "Changed " + machineType + " time slot " + time + " on " + date + " to " + newStatus);
+                    
+                // Refresh UI
+                refreshUI("time slot status change");
+            } else {
+                view.showError("Failed to update time slot status");
+            }
+        } catch (Exception ex) {
+            view.showError("Error updating time slot: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleExportLogs() {
+        try {
+            List<String> logs = model.getServerLogs();
+            String logText = String.join("\n", logs);
+            
+            boolean success = model.saveStringToFile("logs_export_" + System.currentTimeMillis() + ".txt", logText);
+            if (success) {
+                view.displayResults("Logs exported successfully");
+                
+                // Log the activity
+                model.logActivity(currentUsername, "EXPORT_LOGS", "Exported system logs to file");
+            } else {
+                view.showError("Failed to export logs");
+            }
+        } catch (Exception ex) {
+            view.showError("Error exporting logs: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleClearLogs() {
+        try {
+            boolean confirmed = view.showConfirmDialog("Confirm", "Are you sure you want to clear all logs?");
+            if (!confirmed) {
+                return;
+            }
+            
+            boolean success = model.clearLogs();
+            if (success) {
+                view.displayResults("Logs cleared successfully");
+                
+                // Log the action of clearing logs (ironically)
+                model.logActivity(currentUsername, "CLEAR_LOGS", "Cleared all system logs");
+                
+                // Refresh UI
+                refreshUI("logs cleared");
+            } else {
+                view.showError("Failed to clear logs");
+            }
+        } catch (Exception ex) {
+            view.showError("Error clearing logs: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void handleFilterLogs(String userFilter, String actionFilter) {
+        try {
+            List<String> logs = model.getServerLogs();
+            
+            if (logs == null || logs.isEmpty()) {
+                return;
+            }
+            
+            view.clearSystemLogsTable();
+            
+            for (String log : logs) {
+                // Parse log format: [timestamp] userId - action: details
+                if (log.startsWith("[") && log.contains("]")) {
+                    int closeBracket = log.indexOf("]");
+                    String timestamp = log.substring(1, closeBracket);
+                    
+                    String remainder = log.substring(closeBracket + 2);
+                    String[] parts = remainder.split(" - ", 2);
+                    
+                    if (parts.length == 2) {
+                        String userId = parts[0];
+                        
+                        String[] actionParts = parts[1].split(": ", 2);
+                        if (actionParts.length == 2) {
+                            String action = actionParts[0];
+                            String details = actionParts[1];
+                            
+                            // Apply filters
+                            boolean userMatch = userFilter.isEmpty() || userId.contains(userFilter);
+                            boolean actionMatch = "All".equals(actionFilter) || action.equals(actionFilter);
+                            
+                            if (userMatch && actionMatch) {
+                                view.addLogToSystemLogsTable(timestamp, userId, action, details);
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ex) {
+            view.showError("Error filtering logs: " + ex.getMessage());
+            ex.printStackTrace();
+        }
+    }
+    
+    private void loadTimeSlotsForAdmin() {
+        if (!"admin".equals(currentUsername)) {
+            view.showError("Only admin can manage time slots");
+            return;
+        }
+        
+        try {
+            // Clear existing time slots table in the admin view
+            view.clearTimeSlotTable();
+            
+            // Get the currently selected machine type and date from the view
+            String machineType = view.getMachineTypeSelection();
+            String date = view.getDateSelection();
+            
+            // Get all time slots for this machine type and date
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("machineType", machineType);
+            criteria.put("date", date);
+            
+            // First load existing time slots from the time slot records
+            List<Map<String, Object>> timeSlots = model.searchRecords("timeSlot", criteria);
+            
+            // Get bookings that might not be in the time slot records
+            List<Map<String, Object>> bookings = model.searchRecords("booking", criteria);
+            
+            // Create a set to track already added time slots
+            Set<String> addedTimeSlots = new HashSet<>();
+            
+            // Process time slots from timeSlot records
+            if (timeSlots != null && !timeSlots.isEmpty()) {
+                for (Map<String, Object> slot : timeSlots) {
+                    String timeSlot = (String) slot.get("timeSlot");
+                    String status = (String) slot.get("status");
+                    String id = (String) slot.get("id");
+                    
+                    if (timeSlot == null || status == null) continue;
+                    
+                    // Format for display
+                    String formattedMachineType = machineType;
+                    String formattedDate = view.formatDate(date);
+                    String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                    
+                    // Check if this time slot is booked by someone
+                    String bookedBy = "";
+                    if (bookings != null) {
+                        for (Map<String, Object> booking : bookings) {
+                            String bookingTimeSlot = (String) booking.get("timeSlot");
+                            if (timeSlot.equals(bookingTimeSlot) || 
+                                formattedTimeSlot.equals(view.formatTimeSlot(bookingTimeSlot))) {
+                                bookedBy = (String) booking.get("username");
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Add to view and track
+                    view.addTimeSlotToTable(formattedMachineType, formattedDate, formattedTimeSlot, status, bookedBy, id);
+                    addedTimeSlots.add(timeSlot);
+                }
+            }
+            
+            // Process bookings that might represent time slots
+            if (bookings != null && !bookings.isEmpty()) {
+                for (Map<String, Object> booking : bookings) {
+                    String timeSlot = (String) booking.get("timeSlot");
+                    String status = (String) booking.get("status");
+                    String username = (String) booking.get("username");
+                    String id = (String) booking.get("id");
+                    
+                    if (timeSlot == null || status == null) continue;
+                    
+                    // Skip if already added from timeSlot records
+                    if (timeSlot != null && addedTimeSlots.contains(timeSlot)) continue;
+                    
+                    // Format for display
+                    String formattedMachineType = machineType;
+                    String formattedDate = view.formatDate(date);
+                    String formattedTimeSlot = view.formatTimeSlot(timeSlot);
+                    
+                    // For bookings, status is "Booked" with username
+                    String displayStatus = "Booked";
+                    
+                    // Add to view and track
+                    view.addTimeSlotToTable(formattedMachineType, formattedDate, formattedTimeSlot, displayStatus, username, id);
+                    addedTimeSlots.add(timeSlot);
+                }
+            }
+            
+            // If no time slots found at all, add default time slots as available
+            if (addedTimeSlots.isEmpty()) {
+                String[] defaultSlots = {
+                    "08:30-09:30 AM", "09:30-10:30 AM", "10:30-11:30 AM", 
+                    "11:30-12:30 PM", "12:30-01:30 PM", "01:30-02:30 PM",
+                    "02:30-03:30 PM", "03:30-04:30 PM", "04:30-05:30 PM"
+                };
+                
+                for (String slot : defaultSlots) {
+                    String formattedMachineType = machineType;
+                    String formattedDate = view.formatDate(date);
+                    
+                    // Create a unique ID for this default slot
+                    String id = UUID.randomUUID().toString();
+                    
+                    // Add to view with "Available" status
+                    view.addTimeSlotToTable(formattedMachineType, formattedDate, slot, "Available", "", id);
+                }
+                
+                view.displayResults("Added default time slots for " + machineType + " on " + date);
+            } else {
+                view.displayResults("Loaded " + addedTimeSlots.size() + " time slots for " + machineType + " on " + date);
+            }
+        } catch (Exception e) {
+            view.showError("Error loading time slots: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    // Add this new method for comprehensive UI refreshing
+    private void refreshUI(String trigger) {
+        try {
+            SwingUtilities.invokeLater(() -> {
+                try {
+                    // Always refresh user bookings if logged in
+                    if (currentUsername != null) {
+                        loadUserBookings();
+                    }
+                    
+                    // Always update available time slots
+                    updateTimeSlots("refresh");
+                    
+                    // Admin-specific updates
+                    if ("admin".equals(currentUsername)) {
+                        loadAllBookingsForAdmin();
+                        loadUsersForAdmin();
+                        loadTimeSlotsForAdmin();
+                        loadSystemLogs();
+                    }
+                    
+                    view.displayResults("System refreshed" + (trigger != null ? " after " + trigger : ""));
+                } catch (Exception e) {
+                    view.showError("Error refreshing UI: " + e.getMessage());
+                    e.printStackTrace();
+                }
+            });
+        } catch (Exception e) {
+            System.err.println("Error in refreshUI: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+    
+    // Add this method to ensure admin user exists
+    private void createAdminUserIfNotExists() {
+        try {
+            // Check if admin user already exists
+            Map<String, Object> criteria = new HashMap<>();
+            criteria.put("username", "admin");
+            List<Map<String, Object>> adminUsers = model.searchRecords("user", criteria);
+            
+            if (adminUsers == null || adminUsers.isEmpty()) {
+                // Create the admin user if it doesn't exist
+                Map<String, Object> adminUser = new HashMap<>();
+                adminUser.put("username", "admin");
+                adminUser.put("password", "admin"); // Default password
+                adminUser.put("role", "Admin");
+                adminUser.put("status", "Active");
+                adminUser.put("id", "admin-" + UUID.randomUUID().toString().substring(0, 8));
+                
+                boolean success = model.addRecord("user", adminUser);
+                if (success) {
+                    System.out.println("Created default admin user");
+                    model.logActivity("SYSTEM", "CREATE_ADMIN", "Default admin user was created");
+                } else {
+                    System.err.println("Failed to create default admin user");
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error creating admin user: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+} 

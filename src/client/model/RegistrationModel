@@ -1,0 +1,385 @@
+package client.model;
+
+import rmi.ClientCallback;
+import rmi.RemoteInterface;
+import java.rmi.Naming;
+import java.rmi.RemoteException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
+import java.util.Date;
+import java.text.SimpleDateFormat;
+import java.io.FileWriter;
+import java.util.function.Consumer;
+import javax.swing.SwingUtilities;
+import com.google.gson.Gson;
+
+public class RegistrationModel {
+    private RemoteInterface server;
+    private ClientCallbackImpl callbackHandler;
+    
+    private List<Map<String, Object>> mockTimeSlots;
+    
+    private Map<String, List<Runnable>> dataChangeListeners = new HashMap<>();
+    
+    public RegistrationModel() {
+        try {
+            // Connect to the remote server
+            System.out.println("Attempting to connect to RMI server...");
+            
+            Exception lastException = null;
+            String[] urls = new String[] {
+                "rmi://localhost:1099/RegistrationServer",
+                "//localhost:1099/RegistrationServer",
+                "rmi://localhost/RegistrationServer",
+                "//localhost/RegistrationServer",
+                "rmi://127.0.0.1:1099/RegistrationServer",
+                "//127.0.0.1:1099/RegistrationServer",
+                "rmi://localhost:1099/RegistrationService",
+                "//localhost:1099/RegistrationService",
+                "rmi://localhost/RegistrationService",
+                "//localhost/RegistrationService",
+                "rmi://127.0.0.1:1099/RegistrationService",
+                "//127.0.0.1:1099/RegistrationService",
+                "rmi://localhost:1099/Server",
+                "//localhost:1099/Server"
+            };
+            
+            // Try each URL
+            for (String url : urls) {
+                try {
+                    System.out.println("Trying to connect to: " + url);
+                    server = (RemoteInterface) Naming.lookup(url);
+                    System.out.println("Successfully connected to RMI server at: " + url);
+                    // If we get here, we connected
+                    setupCallbacks();
+                    return;
+                } catch (Exception e) {
+                    lastException = e;
+                    System.out.println("  Failed to connect to " + url + ": " + e.getMessage());
+                }
+            }
+            
+            // If we're here, all connection attempts failed
+            throw new Exception("Could not connect to RMI server. Please make sure the server is running.");
+            
+        } catch (Exception e) {
+            System.err.println("Client exception: " + e.toString());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to connect to server: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Sets up the callback handler and registers with the server
+     */
+    private void setupCallbacks() {
+        try {
+            if (server != null) {
+                callbackHandler = new ClientCallbackImpl();
+                // Add a listener to refresh bookings when updates occur
+                callbackHandler.addRefreshListener(type -> {
+                    if (type.equals("booking") || type.contains("record")) {
+                        // When booking data changes, notify all booking listeners
+                        notifyListeners("booking");
+                    }
+                });
+                server.registerCallback(callbackHandler);
+                System.out.println("Registered for server callbacks");
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to set up callbacks: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Add a data change listener for a specific record type
+     * @param recordType The type of record to listen for changes on
+     * @param listener The listener to notify when data changes
+     */
+    public void addDataChangeListener(String recordType, Runnable listener) {
+        if (!dataChangeListeners.containsKey(recordType)) {
+            dataChangeListeners.put(recordType, new ArrayList<>());
+        }
+        dataChangeListeners.get(recordType).add(listener);
+        
+        // Try to register for server callbacks if connected
+        try {
+            if (server != null) {
+                System.out.println("Registering for server callbacks");
+                
+                // Initialize callback handler if not already done
+                if (callbackHandler == null) {
+                    try {
+                        callbackHandler = new ClientCallbackImpl();
+                        // Use the correct method for adding a refresh listener
+                        callbackHandler.addRefreshListener(type -> {
+                            // When any data change happens, check if we have listeners for that type
+                            if (dataChangeListeners.containsKey(type)) {
+                                notifyListeners(type);
+                            } 
+                            // For generic record updates, also refresh booking data
+                            else if (type.contains("record")) {
+                                notifyListeners("booking");
+                            }
+                        });
+                        
+                        // Register the callback handler with the server
+                        server.registerCallback(callbackHandler);
+                    } catch (RemoteException e) {
+                        System.err.println("Error creating callback handler: " + e.getMessage());
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error registering for server callbacks: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Notify listeners that data has changed
+     * @param recordType The type of record that changed
+     */
+    private void notifyListeners(String recordType) {
+        if (dataChangeListeners.containsKey(recordType)) {
+            for (Runnable listener : dataChangeListeners.get(recordType)) {
+                try {
+                    // Run on the EDT for Swing updates
+                    SwingUtilities.invokeLater(listener);
+                } catch (Exception e) {
+                    System.err.println("Error notifying listener: " + e.getMessage());
+                }
+            }
+        }
+    }
+    
+    /**
+     * Cleanup method to unregister from server callbacks
+     */
+    public void cleanup() {
+        try {
+            if (server != null && callbackHandler != null) {
+                server.unregisterCallback(callbackHandler);
+                System.out.println("Unregistered from server callbacks");
+            }
+        } catch (Exception e) {
+            System.err.println("Error during cleanup: " + e.getMessage());
+        }
+    }
+    
+    // Create a mock server implementation for offline testing
+    private void mockServer() {
+        System.out.println("Creating mock server implementation for offline testing");
+        
+        // Initialize mock data for time slots
+        mockTimeSlots = new ArrayList<>();
+        
+        // Add sample time slots
+        String[] machineTypes = {"Laundry", "Dryer"};
+        String[] dates = {"April 1, 2025", "April 2, 2025", "April 3, 2025"};
+        String[] timeSlots = {"08:30-09:30 AM", "09:30-10:30 AM", "10:30-11:30 AM", "11:30-12:30 PM"};
+        String[] statuses = {"Available", "Maintenance", "Blocked"};
+        
+        for (int i = 0; i < 10; i++) {
+            Map<String, Object> timeSlot = new HashMap<>();
+            String id = "TS" + (1000 + i);
+            timeSlot.put("id", id);
+            timeSlot.put("machineType", machineTypes[i % machineTypes.length]);
+            timeSlot.put("date", dates[i % dates.length]);
+            timeSlot.put("timeSlot", timeSlots[i % timeSlots.length]);
+            timeSlot.put("status", statuses[i % statuses.length]);
+            mockTimeSlots.add(timeSlot);
+            
+            System.out.println("Added mock time slot with ID: " + id);
+        }
+    }
+    
+    // Custom methods for our application
+    public boolean registerUser(String username, String password) throws Exception {
+        // Create a user record
+        Map<String, Object> userData = new HashMap<>();
+        userData.put("username", username);
+        userData.put("password", password);
+        
+        String result = server.createRecord("user", userData);
+        return result != null && !result.isEmpty();
+    }
+    
+    public String loginUser(String username, String password) throws Exception {
+        // Handle admin login as a special case
+        if ("admin".equals(username) && "admin123".equals(password)) {
+            logActivity("ADMIN", "LOGIN", "Admin logged in");
+            return "ADMIN";
+        }
+        
+        // Normal server-based authentication
+        Map<String, Object> criteria = new HashMap<>();
+        criteria.put("username", username);
+        criteria.put("password", password);
+        
+        List<Map<String, Object>> results = server.searchRecords("user", criteria);
+        if (results != null && !results.isEmpty()) {
+            Map<String, Object> user = results.get(0);
+            String userId = (String) user.get("id");
+            logActivity(userId, "LOGIN", username + " logged in");
+            return userId;
+        }
+        
+        return null;
+    }
+    
+    public List<Map<String, Object>> searchRecords(String recordType, Map<String, Object> criteria) throws Exception {
+        return server.searchRecords(recordType, criteria);
+    }
+    
+    public void logActivity(String userId, String action, String details) throws Exception {
+        server.logActivity(userId, action, details);
+    }
+    
+    // Admin functionality methods
+    /**
+     * Update a record in the server database
+     * @param recordType The type of record to update
+     * @param criteria The criteria to match the record
+     * @param updateData The new data to update the record with
+     * @return True if the update was successful
+     */
+    public boolean updateRecord(String recordType, Map<String, Object> criteria, Map<String, Object> updateData) {
+        try {
+            if (server != null) {
+                // Extract the record ID from criteria if available
+                String recordId = null;
+                if (criteria.containsKey("id")) {
+                    recordId = (String) criteria.get("id");
+                }
+                
+                if (recordId == null) {
+                    // If no ID is provided, we can't update the record
+                    return false;
+                }
+                
+                boolean success = server.updateRecord(recordType, recordId, updateData);
+                if (success) {
+                    // Notify listeners that data has changed
+                    notifyListeners(recordType);
+                }
+                return success;
+            } else {
+                // Mock implementation
+                System.out.println("Mock update of " + recordType + " record");
+                System.out.println("Criteria: " + criteria);
+                System.out.println("Update: " + updateData);
+                
+                // Notify listeners that data has changed
+                notifyListeners(recordType);
+                return true;
+            }
+        } catch (Exception e) {
+            System.err.println("Error updating record: " + e.getMessage());
+            return false;
+        }
+    }
+    
+    public boolean deleteRecord(String recordType, Map<String, Object> criteria) throws Exception {
+        String recordId = null;
+        if (criteria.containsKey("id")) {
+            recordId = (String) criteria.get("id");
+        }
+        
+        if (recordId == null) {
+            throw new Exception("Record ID is required for deletion");
+        }
+        
+        return server.deleteRecord(recordType, recordId);
+    }
+    
+    public boolean addRecord(String recordType, Map<String, Object> recordData) throws Exception {
+        String result = server.createRecord(recordType, recordData);
+        return result != null && !result.isEmpty();
+    }
+    
+    public void logAction(String username, String action, String details) throws Exception {
+        Map<String, Object> logData = new HashMap<>();
+        logData.put("timestamp", new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(new Date()));
+        logData.put("username", username);
+        logData.put("action", action);
+        logData.put("details", details);
+        
+        // Use existing logging method
+        logActivity(username, action, details);
+    }
+    
+    public List<String> getServerLogs() throws Exception {
+        return server.getSystemLogs();
+    }
+    
+    public boolean clearLogs() throws Exception {
+        return server.clearSystemLogs();
+    }
+    
+    public boolean saveStringToFile(String fileName, String content) throws Exception {
+        try {
+            FileWriter writer = new FileWriter(fileName);
+            writer.write(content);
+            writer.close();
+            return true;
+        } catch (Exception e) {
+            throw new Exception("Failed to save file: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Check if the server is currently paused
+     */
+    public boolean isServerPaused() {
+        try {
+            return server != null && server.isServerPaused();
+        } catch (Exception e) {
+            return false;
+        }
+    }
+    
+    /**
+     * Check if a time slot is available (no overlap)
+     */
+    public boolean isTimeSlotAvailable(String date, String timeSlot, String machineType) throws Exception {
+        try {
+            return server.isTimeSlotAvailable(date, timeSlot, machineType);
+        } catch (RemoteException e) {
+            // Handle server pause
+            if (isServerPaused()) {
+                throw new Exception("The server is currently paused. Please try again later.");
+            }
+            
+            throw new Exception("Failed to check time slot availability: " + e.getMessage());
+        } catch (Exception e) {
+            throw new Exception("Failed to check time slot availability: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Safely log out user
+     */
+    public void logOut(String userId, String username) {
+        try {
+            if (server != null) {
+                server.logActivity(userId, "LOGOUT", username + " logged out");
+            }
+            // Clean up any resources
+            cleanup();
+        } catch (Exception e) {
+            System.err.println("Logout error (non-critical): " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Manually notify listeners for a specific record type
+     * This can be used to trigger UI refreshes for specific data types
+     * 
+     * @param recordType The type of record to notify listeners about
+     */
+    public void notifyDataListeners(String recordType) {
+        notifyListeners(recordType);
+    }
+} 

@@ -1,0 +1,85 @@
+package client.model;
+
+import rmi.ClientCallback;
+
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Consumer;
+
+/**
+ * Implementation of the ClientCallback interface for handling real-time updates from the server.
+ */
+public class ClientCallbackImpl extends UnicastRemoteObject implements ClientCallback {
+    private final List<Consumer<String>> refreshListeners;
+    
+    public ClientCallbackImpl() throws RemoteException {
+        super();
+        this.refreshListeners = new ArrayList<>();
+    }
+    
+    /**
+     * Add a listener that will be called when data changes and views need to be refreshed.
+     * @param listener A callback function that receives the type of data that was changed
+     */
+    public void addRefreshListener(Consumer<String> listener) {
+        refreshListeners.add(listener);
+    }
+    
+    /**
+     * Remove a refresh listener.
+     * @param listener The listener to remove
+     */
+    public void removeRefreshListener(Consumer<String> listener) {
+        refreshListeners.remove(listener);
+    }
+    
+    @Override
+    public void notifyCreated(String type, Map<String, Object> data) throws RemoteException {
+        System.out.println("Callback received: " + type + " record created");
+        notifyListeners(type);
+    }
+    
+    @Override
+    public void notifyUpdated(String type, Map<String, Object> data) throws RemoteException {
+        System.out.println("Callback received: " + type + " record updated");
+        
+        // Special handling for booking updates to ensure they show in the client view
+        if (type.equals("booking")) {
+            System.out.println("Booking update detected with data: " + data);
+        }
+        
+        notifyListeners(type);
+        
+        // Also notify for "booking" type explicitly for any record updates
+        // This ensures booking views are refreshed when records change
+        if (!type.equals("booking")) {
+            notifyListeners("booking");
+        }
+    }
+    
+    @Override
+    public void notifyDeleted(String type, String id) throws RemoteException {
+        System.out.println("Callback received: " + type + " record deleted");
+        notifyListeners(type);
+    }
+    
+    @Override
+    public void notifyGeneric(String eventType, Object data) throws RemoteException {
+        System.out.println("Callback received: generic event " + eventType);
+        notifyListeners(eventType);
+    }
+    
+    private void notifyListeners(String type) {
+        // Call all listeners to refresh their views
+        for (Consumer<String> listener : refreshListeners) {
+            try {
+                listener.accept(type);
+            } catch (Exception e) {
+                System.err.println("Error notifying listener: " + e.getMessage());
+            }
+        }
+    }
+} 
