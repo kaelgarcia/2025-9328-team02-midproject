@@ -1,0 +1,74 @@
+[
+    {
+      "date": "April",
+      "id": "f8bc1c40-acd1-447f-b684-58a80f9df6b6",
+      "timeSlot": "1, 2025 (Tuesday) 12:30-01:30 PM",
+      "machineType": "Laundry",
+      "username": "test2",
+      "status": "Rejected"
+    },
+    {
+      "date": "April",
+      "id": "22a8bcaf-c8f6-4846-8d41-8cea3b8cf9b0",
+      "timeSlot": "1 (Tuesday) 08:30-09:30 AM",
+      "machineType": "Laundry",
+      "username": "Michael",
+      "status": "Rejected"
+    },
+    {
+      "date": "April",
+      "timeSlot": "1 (Tuesday) 08:30-09:30 AM",
+      "id": "8c234109-2ed5-4f09-b8c5-c4ad622ae408",
+      "machineType": "Dryer",
+      "username": "test2",
+      "status": "Pending"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "86fdfea4-23f4-4ef6-958e-66eed252f55b",
+      "timeSlot": "08:30-09:30 AM",
+      "machineType": "Laundry",
+      "username": "Michael",
+      "status": "Confirmed"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "03:30-04:30 PM",
+      "id": "dbced2da-81d9-40f7-951d-cf61476aeebf",
+      "machineType": "Laundry",
+      "username": "test3",
+      "status": "Pending"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "12:30-1:30 AM",
+      "id": "eb8a5c46-72fc-47c3-a426-e575d6aae9e8",
+      "machineType": "Laundry",
+      "username": "Michael",
+      "status": "Pending"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "09:30-10:30 AM",
+      "id": "77ae19d1-e415-4162-96a8-c4a5ba036eb4",
+      "machineType": "Laundry",
+      "username": "Michael",
+      "status": "Pending"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "08:30-09:30 AM",
+      "id": "e912b72a-972b-4159-b963-d2a44588c4c9",
+      "machineType": "Dryer",
+      "username": "Michael",
+      "status": "Pending"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "10:30-11:30 AM",
+      "id": "2a79f2d6-5f65-4371-8465-ea71c02de82b",
+      "machineType": "Laundry",
+      "username": "Michael",
+      "status": "Pending"
+    }
+  ]

@@ -1,0 +1,28 @@
+[
+    {
+      "password": "test",
+      "id": "1432fd30-f25a-49e9-abe6-4ce2b5e06d2c",
+      "username": "Michael"
+    },
+    {
+      "id": "65a0c6f5-7a80-45f9-89d7-8ef96d1d35dd",
+      "status": "Blocked"
+    },
+    {
+      "password": "test2",
+      "id": "8c6b91fd-cf86-4810-aab2-8b383224cc59",
+      "username": "test2"
+    },
+    {
+      "password": "test3",
+      "id": "cb662189-8bdf-4b98-b20e-6852563f9640",
+      "username": "test3"
+    },
+    {
+      "password": "admin",
+      "role": "Admin",
+      "id": "4e332d37-2759-4fb8-8ca1-0fc03d3c00dd",
+      "username": "admin",
+      "status": "Active"
+    }
+  ]

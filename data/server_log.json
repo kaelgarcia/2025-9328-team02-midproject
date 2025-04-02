@@ -1,0 +1,29 @@
+[
+    {
+      "action": "REGISTER_CALLBACK",
+      "details": "New client registered for callbacks",
+      "userId": "system",
+      "timestamp": "2025-04-02T16:23:31.2301029"
+    },
+    {
+      "action": "LOGIN",
+      "details": "Michael logged in",
+      "actionCategory": "AUTHENTICATION",
+      "userId": "1432fd30-f25a-49e9-abe6-4ce2b5e06d2c",
+      "timestamp": "2025-04-02T16:23:56.4012931"
+    },
+    {
+      "action": "LOGIN",
+      "details": "User logged in",
+      "actionCategory": "AUTHENTICATION",
+      "userId": "1432fd30-f25a-49e9-abe6-4ce2b5e06d2c",
+      "timestamp": "2025-04-02T16:23:56.4166186"
+    },
+    {
+      "action": "UNREGISTER_CALLBACK",
+      "details": "Client unregistered from callbacks",
+      "userId": "system",
+      "timestamp": "2025-04-02T16:24:25.6626589"
+    }
+  ]
+  

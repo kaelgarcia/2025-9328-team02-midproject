@@ -1,0 +1,79 @@
+[
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "08:30-09:30 AM",
+      "id": "cd311b33-b605-4df2-a2a5-63bc47fd26d0",
+      "machineType": "Dryer",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "08:30-09:30 AM",
+      "id": "73d03a01-0ba2-4f90-80f5-fe6b515f5625",
+      "machineType": "Dryer",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "08:30-09:30 AM",
+      "id": "a1a1480d-b168-4c83-82d8-390b8b624efb",
+      "machineType": "Dryer",
+      "status": "Available"
+    },
+    {
+      "date": "April 1 (Tuesday)",
+      "timeSlot": "08:30-09:30 AM",
+      "id": "f1701adf-4562-429f-bcf5-cb3639db67a0",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "11aec113-a2f5-4159-b4c1-aa860a50b516",
+      "timeSlot": "12:30-1:30 AM",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "b4938263-f45f-4bd5-9223-eee25fc55aa2",
+      "timeSlot": "12:30-1:30 AM",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "12:30-1:30 AM",
+      "id": "d3475f81-7a73-4719-8917-329d74d9f907",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "68f92465-ef1e-4e63-bd89-6b420baf71ef",
+      "timeSlot": "12:30-1:30 AM",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "timeSlot": "12:30-1:30 AM",
+      "id": "e6185537-635c-48d3-980b-1841eb53f514",
+      "machineType": "Laundry",
+      "status": "Available"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "26e8c158-13b5-44a7-b92c-7341aaf57344",
+      "timeSlot": "12:30-1:30 AM",
+      "machineType": "Laundry",
+      "status": "Blocked"
+    },
+    {
+      "date": "April 1, 2025 (Tuesday)",
+      "id": "82f2a0e7-8058-4e2f-9b63-0991b8f67133",
+      "timeSlot": "12:30-1:30",
+      "machineType": "Laundry",
+      "status": "Maintenance"
+    }
+  ]
