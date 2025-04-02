@@ -1,0 +1,33 @@
+package rmi;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.util.List;
+import java.util.Map;
+
+public interface RemoteInterface extends Remote {
+    // CRUD Operations
+    String createRecord(String type, Map<String, Object> data) throws RemoteException;
+    Map<String, Object> readRecord(String type, String id) throws RemoteException;
+    boolean updateRecord(String type, String id, Map<String, Object> data) throws RemoteException;
+    boolean deleteRecord(String type, String id) throws RemoteException;
+    
+    // Search Operations
+    List<Map<String, Object>> searchRecords(String type, Map<String, Object> criteria) throws RemoteException;
+    
+    // System Operations
+    boolean isServerAlive() throws RemoteException;
+    List<String> getSystemLogs() throws RemoteException;
+    boolean clearSystemLogs() throws RemoteException;
+    void logActivity(String userId, String action, String details) throws RemoteException;
+    
+    // Callback Operations for real-time updates
+    void registerCallback(ClientCallback callback) throws RemoteException;
+    void unregisterCallback(ClientCallback callback) throws RemoteException;
+    
+    // Server Control Operations
+    boolean isServerPaused() throws RemoteException;
+    
+    // Time slot validation
+    boolean isTimeSlotAvailable(String date, String timeSlot, String machineType) throws RemoteException;
+} 
