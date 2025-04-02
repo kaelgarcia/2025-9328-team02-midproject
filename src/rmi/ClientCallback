@@ -1,0 +1,48 @@
+package rmi;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+import java.util.Map;
+
+/**
+ * Interface for client callbacks to support real-time updates.
+ * Clients register with the server to receive notifications about changes.
+ */
+ 
+public interface ClientCallback extends Remote {
+    /**
+     * Notifies clients when a new record is created.
+     * 
+     * @param type The type of record created
+     * @param data The record data
+     * @throws RemoteException If a remote communication error occurs
+     */
+    void notifyCreated(String type, Map<String, Object> data) throws RemoteException;
+    
+    /**
+     * Notifies clients when a record is updated.
+     * 
+     * @param type The type of record updated
+     * @param data The updated record data
+     * @throws RemoteException If a remote communication error occurs
+     */
+    void notifyUpdated(String type, Map<String, Object> data) throws RemoteException;
+    
+    /**
+     * Notifies clients when a record is deleted.
+     * 
+     * @param type The type of record deleted
+     * @param id The ID of the deleted record
+     * @throws RemoteException If a remote communication error occurs
+     */
+    void notifyDeleted(String type, String id) throws RemoteException;
+    
+    /**
+     * General purpose notification for other types of events.
+     * 
+     * @param eventType The type of event that occurred
+     * @param data Optional data associated with the event, can be null
+     * @throws RemoteException If a remote communication error occurs
+     */
+    void notifyGeneric(String eventType, Object data) throws RemoteException;
+} 
