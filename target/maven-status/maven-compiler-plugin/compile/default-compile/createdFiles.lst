@@ -1,0 +1,16 @@
+client\view\RegistrationView$6.class
+client\view\RegistrationView$5.class
+client\controller\RegistrationController.class
+rmi\ClientCallback.class
+client\ClientLauncher.class
+rmi\RemoteInterface.class
+client\view\RegistrationView$4.class
+server\ServerImpl.class
+client\model\ClientCallbackImpl.class
+server\ServerLauncher.class
+client\view\RegistrationView$3.class
+client\view\RegistrationView$2.class
+client\view\RegistrationView.class
+client\view\RegistrationView$1.class
+client\model\RegistrationModel.class
+client\ClientLauncher$1.class
