@@ -1,0 +1,100 @@
+package client;
+
+import client.controller.RegistrationController;
+import client.model.RegistrationModel;
+import client.view.RegistrationView;
+
+import javax.swing.*;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+
+public class ClientLauncher {
+    private static RegistrationModel model;
+    
+    public static void main(String[] args) {
+        try {
+            // Set look and feel to the system look and feel
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+            
+            // Initialize components
+            RegistrationView view = new RegistrationView();
+            model = new RegistrationModel();
+            RegistrationController controller = new RegistrationController(view, model);
+            
+            // Add window listener for cleanup
+            view.addWindowListener(new WindowAdapter() {
+                @Override
+                public void windowClosing(WindowEvent e) {
+                    cleanup();
+                }
+            });
+            
+            // Show the view
+            view.setVisible(true);
+            
+            // Start server status check
+            startServerStatusCheck(view);
+            
+        } catch (Exception e) {
+            System.err.println("Error starting application: " + e.getMessage());
+            e.printStackTrace();
+            JOptionPane.showMessageDialog(null, 
+                "Error starting application: " + e.getMessage(), 
+                "Application Error", 
+                JOptionPane.ERROR_MESSAGE);
+        }
+    }
+    
+    /**
+     * Periodically check if the server is paused and update UI accordingly
+     */
+    private static void startServerStatusCheck(RegistrationView view) {
+        Thread statusThread = new Thread(() -> {
+            boolean wasServerPaused = false;
+            
+            while (true) {
+                try {
+                    // Check server status every 5 seconds
+                    Thread.sleep(5000);
+                    
+                    if (model != null) {
+                        boolean isServerPaused = model.isServerPaused();
+                        
+                        // Only show message when the status changes
+                        if (isServerPaused && !wasServerPaused) {
+                            SwingUtilities.invokeLater(() -> {
+                                view.showServerPausedMessage();
+                            });
+                        } else if (!isServerPaused && wasServerPaused) {
+                            SwingUtilities.invokeLater(() -> {
+                                view.showServerResumedMessage();
+                            });
+                        }
+                        
+                        wasServerPaused = isServerPaused;
+                    }
+                } catch (InterruptedException e) {
+                    break;
+                } catch (Exception e) {
+                    // Ignore other exceptions
+                }
+            }
+        });
+        
+        statusThread.setDaemon(true);
+        statusThread.start();
+    }
+    
+    /**
+     * Clean up resources when the application is closing
+     */
+    private static void cleanup() {
+        if (model != null) {
+            try {
+                model.cleanup();
+            } catch (Exception e) {
+                System.err.println("Error during cleanup: " + e.getMessage());
+            }
+        }
+    }
+} 

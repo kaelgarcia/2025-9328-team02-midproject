@@ -1,0 +1,1288 @@
+package client.view;
+
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
+import java.awt.*;
+import java.awt.event.ActionListener;
+import java.text.SimpleDateFormat;
+import java.util.*;
+import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.BiFunction;
+import java.util.function.Consumer;
+import java.util.function.Function;
+
+public class RegistrationView extends JFrame {
+    private CardLayout cardLayout;
+    private JPanel mainPanel;
+    
+    // Login panel components
+    private JPanel loginPanel;
+    private JTextField loginUsernameField;
+    private JPasswordField loginPasswordField;
+    private JButton loginButton;
+    private JButton showSignupButton;
+    
+    // Signup panel components
+    private JPanel signupPanel;
+    private JTextField signupUsernameField;
+    private JPasswordField signupPasswordField;
+    private JPasswordField confirmPasswordField;
+    private JButton signupButton;
+    private JButton backToLoginButton;
+    
+    // Dashboard panel components
+    private JPanel dashboardPanel;
+    private JPanel userInfoPanel;
+    private JPanel contentPanel;
+    private JButton logoutButton;
+    
+    // Owner panel components
+    private JTabbedPane ownerTabbedPane;
+    private JTable allBookingsTable;
+    private DefaultTableModel allBookingsTableModel;
+    private JTable userManagementTable;
+    private DefaultTableModel userManagementTableModel;
+    private JTable systemLogsTable;
+    private DefaultTableModel systemLogsTableModel;
+    private JButton addTimeSlotButton;
+    private JButton removeTimeSlotButton;
+    private JButton blockMachineButton;
+    
+    // Results area
+    private JTextArea resultsArea;
+    
+    // Book Laundry Tab Components
+    private JComboBox<String> machineTypeCombo;
+    private JComboBox<String> dateCombo;
+    private JList<String> timeSlotList;
+    private DefaultListModel<String> timeSlotModel;
+    private JButton bookButton;
+    private JTextArea bookingDetails;
+    
+    // My Bookings Tab Components
+    private JTable bookingsTable;
+    private DefaultTableModel bookingsTableModel;
+    private JButton cancelBookingButton;
+    
+    // Admin UI update methods
+    public void clearAllBookingsTable() {
+        while (allBookingsTableModel.getRowCount() > 0) {
+            allBookingsTableModel.removeRow(0);
+        }
+    }
+    
+    public void addBookingToAllBookingsTable(String username, String machineType, String date, String timeSlot, String status, String bookingId) {
+        allBookingsTableModel.addRow(new Object[]{username, machineType, date, timeSlot, status, bookingId});
+    }
+    
+    public void clearUserManagementTable() {
+        while (userManagementTableModel.getRowCount() > 0) {
+            userManagementTableModel.removeRow(0);
+        }
+    }
+    
+    public void addUserToUserManagementTable(String username, String role, String status, String bookingsCount, String userId) {
+        userManagementTableModel.addRow(new Object[]{username, role, status, bookingsCount, userId});
+    }
+    
+    public void clearSystemLogsTable() {
+        while (systemLogsTableModel.getRowCount() > 0) {
+            systemLogsTableModel.removeRow(0);
+        }
+    }
+    
+    public void addLogToSystemLogsTable(String timestamp, String username, String action, String details) {
+        systemLogsTableModel.addRow(new Object[]{timestamp, username, action, details});
+    }
+    
+    // Admin button listeners
+    private JButton approveBookingButton;
+    private JButton rejectBookingButton;
+    private JButton deleteBookingButton;
+    private JButton addUserButton;
+    private JButton editUserButton;
+    private JButton blockUserButton;
+    private JButton resetPasswordButton;
+    private JButton exportLogsButton;
+    private JButton clearLogsButton;
+    private JButton applyFilterButton;
+    private JTextField userFilterField;
+    private JComboBox<String> actionFilterCombo;
+    private JTable timeSlotTable;
+    private DefaultTableModel timeSlotTableModel;
+    private JTextField timeSlotField;
+    private JComboBox<String> statusCombo;
+    private JComboBox<String> adminMachineTypeCombo;
+    private JComboBox<String> adminDateCombo;
+    
+    // Time slot management
+    public void clearTimeSlotTable() {
+        if (timeSlotTableModel != null) {
+            while (timeSlotTableModel.getRowCount() > 0) {
+                timeSlotTableModel.removeRow(0);
+            }
+        }
+    }
+    
+    public void addTimeSlotToTable(String machineType, String date, String timeSlot, String status, String bookedBy, String id) {
+        // Get the table model for the time slots table
+        DefaultTableModel model = (DefaultTableModel) timeSlotTable.getModel();
+        // Add a new row with the time slot information
+        model.addRow(new Object[]{machineType, date, timeSlot, status, bookedBy, id});
+    }
+    
+    // Dialog methods for user input
+    public String getUsernameInput(String prompt) {
+        return JOptionPane.showInputDialog(this, prompt);
+    }
+    
+    public String getPasswordInput(String prompt) {
+        return JOptionPane.showInputDialog(this, prompt);
+    }
+    
+    public boolean showConfirmDialog(String title, String message) {
+        int result = JOptionPane.showConfirmDialog(this, message, title, JOptionPane.YES_NO_OPTION);
+        return result == JOptionPane.YES_OPTION;
+    }
+    
+    // Getters for admin UI fields
+    public String getSelectedMachineType() {
+        return adminMachineTypeCombo != null ? (String) adminMachineTypeCombo.getSelectedItem() : null;
+    }
+    
+    public String getSelectedDate() {
+        return adminDateCombo != null ? (String) adminDateCombo.getSelectedItem() : null;
+    }
+    
+    public String getSelectedTimeSlotText() {
+        return timeSlotField != null ? timeSlotField.getText() : null;
+    }
+    
+    public String getSelectedTimeSlotStatus() {
+        return statusCombo != null ? (String) statusCombo.getSelectedItem() : null;
+    }
+    
+    // Admin button listeners
+    public void setApproveBookingListener(Consumer<String> listener) {
+        if (approveBookingButton != null) {
+            approveBookingButton.addActionListener(e -> {
+                int selectedRow = allBookingsTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a booking to approve");
+                    return;
+                }
+                
+                String bookingId = (String) allBookingsTableModel.getValueAt(selectedRow, 5);
+                listener.accept(bookingId);
+            });
+        }
+    }
+    
+    public void setRejectBookingListener(Consumer<String> listener) {
+        if (rejectBookingButton != null) {
+            rejectBookingButton.addActionListener(e -> {
+                int selectedRow = allBookingsTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a booking to reject");
+                    return;
+                }
+                
+                String bookingId = (String) allBookingsTableModel.getValueAt(selectedRow, 5);
+                listener.accept(bookingId);
+            });
+        }
+    }
+    
+    public void setDeleteBookingListener(Consumer<String> listener) {
+        if (deleteBookingButton != null) {
+            deleteBookingButton.addActionListener(e -> {
+                int selectedRow = allBookingsTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a booking to delete");
+                    return;
+                }
+                
+                String bookingId = (String) allBookingsTableModel.getValueAt(selectedRow, 5);
+                listener.accept(bookingId);
+            });
+        }
+    }
+    
+    public void setAddUserListener(Runnable listener) {
+        if (addUserButton != null) {
+            addUserButton.addActionListener(e -> listener.run());
+        }
+    }
+    
+    public void setEditUserListener(Consumer<String> listener) {
+        if (editUserButton != null) {
+            editUserButton.addActionListener(e -> {
+                int selectedRow = userManagementTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a user to edit");
+                    return;
+                }
+                
+                String userId = (String) userManagementTableModel.getValueAt(selectedRow, 4);
+                listener.accept(userId);
+            });
+        }
+    }
+    
+    public void setBlockUserListener(Consumer<String> listener) {
+        if (blockUserButton != null) {
+            blockUserButton.addActionListener(e -> {
+                int selectedRow = userManagementTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a user to block/unblock");
+                    return;
+                }
+                
+                String userId = (String) userManagementTableModel.getValueAt(selectedRow, 4);
+                listener.accept(userId);
+            });
+        }
+    }
+    
+    public void setResetPasswordListener(Consumer<String> listener) {
+        if (resetPasswordButton != null) {
+            resetPasswordButton.addActionListener(e -> {
+                int selectedRow = userManagementTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a user to reset password");
+                    return;
+                }
+                
+                String userId = (String) userManagementTableModel.getValueAt(selectedRow, 4);
+                listener.accept(userId);
+            });
+        }
+    }
+    
+    public void setAddTimeSlotListener(Runnable listener) {
+        if (addTimeSlotButton != null) {
+            addTimeSlotButton.addActionListener(e -> listener.run());
+        }
+    }
+    
+    public void setRemoveTimeSlotListener(Consumer<String> listener) {
+        if (removeTimeSlotButton != null) {
+            removeTimeSlotButton.addActionListener(e -> {
+                int selectedRow = timeSlotTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a time slot to remove");
+                    return;
+                }
+                
+                String timeSlotId = (String) timeSlotTableModel.getValueAt(selectedRow, 5); // Assuming ID is in column 5
+                listener.accept(timeSlotId);
+            });
+        }
+    }
+    
+    public void setBlockTimeSlotListener(Consumer<String> listener) {
+        if (blockMachineButton != null) {
+            blockMachineButton.addActionListener(e -> {
+                int selectedRow = timeSlotTable.getSelectedRow();
+                if (selectedRow == -1) {
+                    showError("Please select a time slot first");
+                    return;
+                }
+                
+                String timeSlotId = (String) timeSlotTableModel.getValueAt(selectedRow, 5); // ID is in column 5
+                
+                // Pass the time slot ID to the listener
+                listener.accept(timeSlotId);
+            });
+        }
+    }
+    
+    public void setExportLogsListener(Runnable listener) {
+        if (exportLogsButton != null) {
+            exportLogsButton.addActionListener(e -> listener.run());
+        }
+    }
+    
+    public void setClearLogsListener(Runnable listener) {
+        if (clearLogsButton != null) {
+            clearLogsButton.addActionListener(e -> listener.run());
+        }
+    }
+    
+    public void setFilterLogsListener(BiConsumer<String, String> listener) {
+        if (applyFilterButton != null) {
+            applyFilterButton.addActionListener(e -> {
+                String userFilter = userFilterField.getText();
+                String actionFilter = (String) actionFilterCombo.getSelectedItem();
+                listener.accept(userFilter, actionFilter);
+            });
+        }
+    }
+    
+    private JComboBox<String> changeStatusCombo;
+    
+    public RegistrationView() {
+        setTitle("Laundry Booking System");
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(800, 600);
+        
+        // Create main panel with card layout
+        cardLayout = new CardLayout();
+        mainPanel = new JPanel(cardLayout);
+        add(mainPanel);
+        
+        // Create individual UI screens
+        createLoginPanel();
+        createSignupPanel();
+        createDashboardPanel();
+        
+        // Show login panel initially
+        cardLayout.show(mainPanel, "login");
+    }
+    
+    private void createLoginPanel() {
+        loginPanel = new JPanel(new BorderLayout());
+        
+        // Create title panel
+        JPanel titlePanel = new JPanel();
+        JLabel titleLabel = new JLabel("Laundry Booking System");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titlePanel.add(titleLabel);
+        loginPanel.add(titlePanel, BorderLayout.NORTH);
+        
+        // Create form panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Username field
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        formPanel.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1;
+        loginUsernameField = new JTextField(20);
+        formPanel.add(loginUsernameField, gbc);
+        
+        // Password field
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("Password:"), gbc);
+        gbc.gridx = 1;
+        loginPasswordField = new JPasswordField(20);
+        formPanel.add(loginPasswordField, gbc);
+        
+        // Buttons panel
+        JPanel buttonsPanel = new JPanel();
+        loginButton = new JButton("Login");
+        showSignupButton = new JButton("Sign Up");
+        buttonsPanel.add(loginButton);
+        buttonsPanel.add(showSignupButton);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        gbc.gridwidth = 2;
+        formPanel.add(buttonsPanel, gbc);
+        
+        // Add form to login panel
+        loginPanel.add(formPanel, BorderLayout.CENTER);
+        
+        // Add login panel to main panel
+        mainPanel.add(loginPanel, "login");
+    }
+    
+    private void createSignupPanel() {
+        signupPanel = new JPanel(new BorderLayout());
+        
+        // Create title panel
+        JPanel titlePanel = new JPanel();
+        JLabel titleLabel = new JLabel("Create New Account");
+        titleLabel.setFont(new Font("Arial", Font.BOLD, 24));
+        titlePanel.add(titleLabel);
+        signupPanel.add(titlePanel, BorderLayout.NORTH);
+        
+        // Create form panel
+        JPanel formPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Username field
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        formPanel.add(new JLabel("Username:"), gbc);
+        gbc.gridx = 1;
+        signupUsernameField = new JTextField(20);
+        formPanel.add(signupUsernameField, gbc);
+        
+        // Password field
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        formPanel.add(new JLabel("Password:"), gbc);
+        gbc.gridx = 1;
+        signupPasswordField = new JPasswordField(20);
+        formPanel.add(signupPasswordField, gbc);
+        
+        // Confirm Password field
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        formPanel.add(new JLabel("Confirm Password:"), gbc);
+        gbc.gridx = 1;
+        confirmPasswordField = new JPasswordField(20);
+        formPanel.add(confirmPasswordField, gbc);
+        
+        // Buttons panel
+        JPanel buttonsPanel = new JPanel();
+        signupButton = new JButton("Sign Up");
+        backToLoginButton = new JButton("Back to Login");
+        buttonsPanel.add(signupButton);
+        buttonsPanel.add(backToLoginButton);
+        
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        formPanel.add(buttonsPanel, gbc);
+        
+        // Add form to signup panel
+        signupPanel.add(formPanel, BorderLayout.CENTER);
+        
+        // Add signup panel to main panel
+        mainPanel.add(signupPanel, "signup");
+    }
+    
+    private void createDashboardPanel() {
+        dashboardPanel = new JPanel(new BorderLayout());
+        
+        // Create header panel with user info and logout button
+        userInfoPanel = new JPanel(new BorderLayout());
+        JPanel userPanel = new JPanel(new FlowLayout(FlowLayout.LEFT));
+        JLabel welcomeLabel = new JLabel("Welcome, User");
+        welcomeLabel.setFont(new Font("Arial", Font.BOLD, 16));
+        userPanel.add(welcomeLabel);
+        
+        JPanel logoutPanel = new JPanel(new FlowLayout(FlowLayout.RIGHT));
+        logoutButton = new JButton("Logout");
+        logoutPanel.add(logoutButton);
+        
+        userInfoPanel.add(userPanel, BorderLayout.WEST);
+        userInfoPanel.add(logoutPanel, BorderLayout.EAST);
+        dashboardPanel.add(userInfoPanel, BorderLayout.NORTH);
+        
+        // Create tabs for different functionalities
+        JTabbedPane customerTabbedPane = new JTabbedPane();
+        
+        // Book Laundry tab
+        JPanel bookPanel = createBookLaundryPanel();
+        customerTabbedPane.addTab("Book Laundry", bookPanel);
+        
+        // View Bookings tab
+        JPanel viewBookingsPanel = createMyBookingsPanel();
+        customerTabbedPane.addTab("My Bookings", viewBookingsPanel);
+        
+        // Create owner tabs
+        ownerTabbedPane = new JTabbedPane();
+        
+        // Manage Bookings tab
+        JPanel allBookingsPanel = createAllBookingsPanel();
+        ownerTabbedPane.addTab("All Bookings", allBookingsPanel);
+        
+        // Manage Users tab
+        JPanel userManagementPanel = createUserManagementPanel();
+        ownerTabbedPane.addTab("User Management", userManagementPanel);
+        
+        // Manage Time Slots tab
+        JPanel timeSlotManagementPanel = createTimeSlotManagementPanel();
+        ownerTabbedPane.addTab("Time Slot Management", timeSlotManagementPanel);
+        
+        // System Logs tab
+        JPanel systemLogsPanel = createSystemLogsPanel();
+        ownerTabbedPane.addTab("System Logs", systemLogsPanel);
+        
+        // Results area (used to display information)
+        resultsArea = new JTextArea(5, 40);
+        resultsArea.setEditable(false);
+        JScrollPane scrollPane = new JScrollPane(resultsArea);
+        
+        // Add tabbed pane to content panel
+        contentPanel = new JPanel(new CardLayout());
+        
+        // Use a card layout for content panel to show either customer or owner panes
+        JPanel customerPanel = new JPanel(new BorderLayout());
+        customerPanel.add(customerTabbedPane, BorderLayout.CENTER);
+        
+        JPanel ownerPanel = new JPanel(new BorderLayout());
+        ownerPanel.add(ownerTabbedPane, BorderLayout.CENTER);
+        
+        contentPanel.add(customerPanel, "customer");
+        contentPanel.add(ownerPanel, "owner");
+        
+        JPanel mainContentPanel = new JPanel(new BorderLayout());
+        mainContentPanel.add(contentPanel, BorderLayout.CENTER);
+        mainContentPanel.add(scrollPane, BorderLayout.SOUTH);
+        
+        dashboardPanel.add(mainContentPanel, BorderLayout.CENTER);
+        
+        // Add dashboard panel to main panel
+        mainPanel.add(dashboardPanel, "dashboard");
+    }
+    
+    private JPanel createBookLaundryPanel() {
+        JPanel panel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(5, 5, 5, 5);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Machine Type
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        panel.add(new JLabel("Machine Type:"), gbc);
+        
+        gbc.gridx = 1;
+        machineTypeCombo = new JComboBox<>(new String[]{"Laundry", "Dryer"});
+        panel.add(machineTypeCombo, gbc);
+        
+        // Date
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        panel.add(new JLabel("Date:"), gbc);
+        
+        gbc.gridx = 1;
+        dateCombo = new JComboBox<>(generateDateOptions());
+        panel.add(dateCombo, gbc);
+        
+        // Available Time Slots
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        panel.add(new JLabel("Available Time Slots:"), gbc);
+        
+        gbc.gridx = 1;
+        gbc.weighty = 1.0;
+        gbc.fill = GridBagConstraints.BOTH;
+        timeSlotModel = new DefaultListModel<>();
+        timeSlotList = new JList<>(timeSlotModel);
+        timeSlotList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        timeSlotList.setVisibleRowCount(8); // Show more rows
+        timeSlotList.setFixedCellHeight(25); // Fix cell height for better display
+        
+        // Add a border and background to make the list more visible
+        timeSlotList.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+        timeSlotList.setBackground(new Color(250, 250, 250));
+        
+        // Use a custom cell renderer to style the items
+        timeSlotList.setCellRenderer(new DefaultListCellRenderer() {
+            @Override
+            public Component getListCellRendererComponent(JList<?> list, Object value, 
+                                                        int index, boolean isSelected, boolean cellHasFocus) {
+                Component c = super.getListCellRendererComponent(list, value, index, isSelected, cellHasFocus);
+                String text = value.toString();
+                
+                // Set different colors based on availability
+                if (text.contains("(Available)")) {
+                    setForeground(new Color(0, 128, 0)); // Green for available
+                } else if (text.contains("(Booked")) {
+                    setForeground(new Color(178, 34, 34)); // Red for booked
+                } else if (text.contains("(Maintenance)")) {
+                    setForeground(new Color(255, 140, 0)); // Orange for maintenance
+                } else {
+                    setForeground(Color.BLACK); // Default
+                }
+                
+                return c;
+            }
+        });
+        
+        JScrollPane scrollPane = new JScrollPane(timeSlotList);
+        scrollPane.setPreferredSize(new Dimension(300, 200)); // Larger size
+        panel.add(scrollPane, gbc);
+        
+        // Book Button
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        gbc.gridwidth = 2;
+        gbc.weighty = 0.0;
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        bookButton = new JButton("Book Selected Time Slot");
+        panel.add(bookButton, gbc);
+        
+        // Initial list
+        timeSlotModel.addElement("Please select a machine type and date");
+        
+        return panel;
+    }
+    
+    private String[] generateDateOptions() {
+        // Generate date options for the next 7 days
+        String[] dateOptions = new String[7];
+        Calendar cal = Calendar.getInstance();
+        SimpleDateFormat dateFormat = new SimpleDateFormat("MMMM d, yyyy (EEEE)");
+        
+        for (int i = 0; i < 7; i++) {
+            dateOptions[i] = dateFormat.format(cal.getTime());
+            cal.add(Calendar.DAY_OF_MONTH, 1);
+        }
+        
+        return dateOptions;
+    }
+    
+    private JPanel createMyBookingsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // Create bookings table
+        String[] columnNames = {"Machine Type", "Date", "Time Slot", "Status", "Booking ID"};
+        bookingsTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table non-editable
+            }
+        };
+        
+        bookingsTable = new JTable(bookingsTableModel);
+        bookingsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane tableScrollPane = new JScrollPane(bookingsTable);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Add sample data
+        addSampleBookings();
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel();
+        cancelBookingButton = new JButton("Cancel Selected Booking");
+        
+        buttonPanel.add(cancelBookingButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        return panel;
+    }
+    
+    private void addSampleBookings() {
+        // Add some sample bookings
+        Object[][] sampleData = {
+            {"Laundry", "April 1, 2025", "08:30-09:30 AM", "Confirmed", "LB001"},
+            {"Dryer", "April 3, 2025", "10:30-11:30 AM", "Confirmed", "LB002"}
+        };
+        
+        for (Object[] row : sampleData) {
+            bookingsTableModel.addRow(row);
+        }
+    }
+    
+    private JPanel createAllBookingsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // Create all bookings table
+        String[] columnNames = {"Username", "Machine Type", "Date", "Time Slot", "Status", "Booking ID"};
+        allBookingsTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table non-editable
+            }
+        };
+        
+        allBookingsTable = new JTable(allBookingsTableModel);
+        allBookingsTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane tableScrollPane = new JScrollPane(allBookingsTable);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Add sample data
+        addSampleAllBookings();
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel();
+        approveBookingButton = new JButton("Approve Booking");
+        rejectBookingButton = new JButton("Reject Booking");
+        deleteBookingButton = new JButton("Delete Booking");
+        
+        buttonPanel.add(approveBookingButton);
+        buttonPanel.add(rejectBookingButton);
+        buttonPanel.add(deleteBookingButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        return panel;
+    }
+    
+    private void addSampleAllBookings() {
+        // Sample data is no longer needed as we're getting real data from booking.json
+        // The data will be populated by the controller using actual booking records
+    }
+    
+    private JPanel createUserManagementPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // Create users table
+        String[] columnNames = {"Username", "Role", "Status", "Total Bookings", "User ID"};
+        userManagementTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table non-editable
+            }
+        };
+        
+        userManagementTable = new JTable(userManagementTableModel);
+        userManagementTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane tableScrollPane = new JScrollPane(userManagementTable);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Add sample users
+        addSampleUsers();
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel();
+        addUserButton = new JButton("Add User");
+        editUserButton = new JButton("Edit User");
+        blockUserButton = new JButton("Block User");
+        resetPasswordButton = new JButton("Reset Password");
+        
+        buttonPanel.add(addUserButton);
+        buttonPanel.add(editUserButton);
+        buttonPanel.add(blockUserButton);
+        buttonPanel.add(resetPasswordButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        return panel;
+    }
+    
+    private void addSampleUsers() {
+        // Sample data is no longer needed as we're getting real data from users.json
+        // The data will be populated by the controller using actual user records
+    }
+    
+    private JPanel createTimeSlotManagementPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // Top controls panel
+        JPanel controlsPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.insets = new Insets(10, 10, 10, 10);
+        gbc.fill = GridBagConstraints.HORIZONTAL;
+        
+        // Machine type selection
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        controlsPanel.add(new JLabel("Machine Type:"), gbc);
+        gbc.gridx = 1;
+        adminMachineTypeCombo = new JComboBox<>(new String[]{"Laundry", "Dryer"});
+        controlsPanel.add(adminMachineTypeCombo, gbc);
+        
+        // Date selection
+        gbc.gridx = 0;
+        gbc.gridy = 1;
+        controlsPanel.add(new JLabel("Date:"), gbc);
+        gbc.gridx = 1;
+        adminDateCombo = new JComboBox<>(generateDateOptions());
+        controlsPanel.add(adminDateCombo, gbc);
+        
+        // Time slot
+        gbc.gridx = 0;
+        gbc.gridy = 2;
+        controlsPanel.add(new JLabel("Time Slot:"), gbc);
+        gbc.gridx = 1;
+        timeSlotField = new JTextField("08:30-09:30 AM");
+        controlsPanel.add(timeSlotField, gbc);
+        
+        // Status
+        gbc.gridx = 0;
+        gbc.gridy = 3;
+        controlsPanel.add(new JLabel("Status:"), gbc);
+        gbc.gridx = 1;
+        statusCombo = new JComboBox<>(new String[]{"Available", "Maintenance", "Blocked"});
+        controlsPanel.add(statusCombo, gbc);
+        
+        panel.add(controlsPanel, BorderLayout.NORTH);
+        
+        // Time slot table
+        String[] columnNames = {"Machine Type", "Date", "Time Slot", "Status", "Booked By", "ID"};
+        timeSlotTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table non-editable
+            }
+        };
+        
+        timeSlotTable = new JTable(timeSlotTableModel);
+        timeSlotTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane tableScrollPane = new JScrollPane(timeSlotTable);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Add sample time slots
+        Object[][] sampleData = {
+            {"Laundry", "April 1, 2025", "08:30-09:30 AM", "Available", "", "TS001"},
+            {"Laundry", "April 1, 2025", "09:30-10:30 AM", "Maintenance", "", "TS002"},
+            {"Laundry", "April 1, 2025", "10:30-11:30 AM", "Booked", "user1", "TS003"},
+            {"Dryer", "April 1, 2025", "08:30-09:30 AM", "Available", "", "TS004"},
+            {"Dryer", "April 1, 2025", "09:30-10:30 AM", "Booked", "user2", "TS005"}
+        };
+        
+        for (Object[] row : sampleData) {
+            timeSlotTableModel.addRow(row);
+        }
+        
+        // Button panel
+        JPanel buttonPanel = new JPanel();
+        addTimeSlotButton = new JButton("Add Time Slot");
+        removeTimeSlotButton = new JButton("Remove Time Slot");
+        // Replace block/unblock button with status change dropdown and apply button
+        changeStatusCombo = new JComboBox<>(new String[]{"Available", "Blocked", "Maintenance"});
+        JButton changeStatusButton = new JButton("Change Status");
+        
+        buttonPanel.add(addTimeSlotButton);
+        buttonPanel.add(removeTimeSlotButton);
+        buttonPanel.add(new JLabel("Change Status:"));
+        buttonPanel.add(changeStatusCombo);
+        buttonPanel.add(changeStatusButton);
+        panel.add(buttonPanel, BorderLayout.SOUTH);
+        
+        // This button becomes our blockMachineButton for compatibility with the controller
+        blockMachineButton = changeStatusButton;
+        
+        return panel;
+    }
+    
+    private JPanel createSystemLogsPanel() {
+        JPanel panel = new JPanel(new BorderLayout());
+        
+        // Create logs table
+        String[] columnNames = {"Timestamp", "User", "Action", "Details"};
+        systemLogsTableModel = new DefaultTableModel(columnNames, 0) {
+            @Override
+            public boolean isCellEditable(int row, int column) {
+                return false; // Make table non-editable
+            }
+        };
+        
+        systemLogsTable = new JTable(systemLogsTableModel);
+        JScrollPane tableScrollPane = new JScrollPane(systemLogsTable);
+        panel.add(tableScrollPane, BorderLayout.CENTER);
+        
+        // Add sample logs
+        addSampleLogs();
+        
+        // Filter panel
+        JPanel filterPanel = new JPanel();
+        filterPanel.add(new JLabel("Filter by User:"));
+        userFilterField = new JTextField(15);
+        filterPanel.add(userFilterField);
+        
+        filterPanel.add(new JLabel("Filter by Action:"));
+        actionFilterCombo = new JComboBox<>(
+            new String[]{"All", "LOGIN", "LOGOUT", "BOOK", "CANCEL", "REGISTER"}
+        );
+        filterPanel.add(actionFilterCombo);
+        
+        applyFilterButton = new JButton("Apply Filter");
+        filterPanel.add(applyFilterButton);
+        
+        panel.add(filterPanel, BorderLayout.NORTH);
+        
+        // Bottom panel
+        JPanel bottomPanel = new JPanel();
+        exportLogsButton = new JButton("Export Logs");
+        clearLogsButton = new JButton("Clear Logs");
+        
+        bottomPanel.add(exportLogsButton);
+        bottomPanel.add(clearLogsButton);
+        panel.add(bottomPanel, BorderLayout.SOUTH);
+        
+        return panel;
+    }
+    
+    private void addSampleLogs() {
+        // Add some sample system logs
+        Object[][] sampleData = {
+            {"2025-04-01 08:30:22", "admin", "LOGIN", "Admin logged in"},
+            {"2025-04-01 08:33:45", "john_doe", "LOGIN", "User logged in"},
+            {"2025-04-01 08:35:12", "john_doe", "BOOK", "Booked Laundry for April 1, 2025 at 10:30-11:30 AM"},
+            {"2025-04-01 09:01:28", "jane_smith", "REGISTER", "New user registered"},
+            {"2025-04-01 09:15:33", "jane_smith", "LOGIN", "User logged in"},
+            {"2025-04-01 09:22:10", "jane_smith", "BOOK", "Booked Dryer for April 2, 2025 at 09:30-10:30 AM"},
+            {"2025-04-01 10:05:45", "john_doe", "LOGOUT", "User logged out"},
+            {"2025-04-01 10:30:18", "admin", "BLOCK", "Blocked time slot April 1, 2025 at 09:30-10:30 AM for maintenance"},
+            {"2025-04-01 10:45:30", "michael_brown", "REGISTER", "New user registered"},
+            {"2025-04-01 11:00:22", "michael_brown", "LOGIN", "User logged in"},
+            {"2025-04-01 11:12:05", "admin", "BLOCK_USER", "Blocked user michael_brown"}
+        };
+        
+        for (Object[] row : sampleData) {
+            systemLogsTableModel.addRow(row);
+        }
+    }
+    
+    // Event handler setup
+    public void setLoginButtonListener(BiConsumer<String, String> listener) {
+        loginButton.addActionListener(e -> {
+            String username = loginUsernameField.getText();
+            String password = new String(loginPasswordField.getPassword());
+            listener.accept(username, password);
+        });
+    }
+    
+    public void setSignupButtonListener(BiConsumer<String, String> listener) {
+        signupButton.addActionListener(e -> {
+            String username = signupUsernameField.getText();
+            String password = new String(signupPasswordField.getPassword());
+            String confirmPassword = new String(confirmPasswordField.getPassword());
+            
+            if (!password.equals(confirmPassword)) {
+                showError("Passwords don't match!");
+                return;
+            }
+            
+            listener.accept(username, password);
+        });
+    }
+    
+    public void setLogoutButtonListener(ActionListener listener) {
+        logoutButton.addActionListener(listener);
+    }
+    
+    // Booking-related listeners
+    public void setBookButtonListener(BiConsumer<String, String> listener) {
+        bookButton.addActionListener(e -> {
+            String machineType = (String) machineTypeCombo.getSelectedItem();
+            int selectedIndex = timeSlotList.getSelectedIndex();
+            
+            if (selectedIndex >= 0) {
+                String selected = timeSlotModel.getElementAt(selectedIndex);
+                
+                // Parse the selection to extract just the time slot portion
+                // It might be "08:30-09:30 AM (Available)" format
+                String timeSlot = selected;
+                if (selected.contains("(")) {
+                    timeSlot = selected.substring(0, selected.indexOf("(")).trim();
+                }
+                
+                String date = (String) dateCombo.getSelectedItem();
+                String dateTime = date + " " + timeSlot;
+                
+                // Call the listener
+                listener.accept(machineType, dateTime);
+            } else {
+                showError("Please select a time slot");
+            }
+        });
+    }
+    
+    public void setCancelBookingListener(Consumer<String> listener) {
+        cancelBookingButton.addActionListener(e -> {
+            int selectedRow = bookingsTable.getSelectedRow();
+            if (selectedRow == -1) {
+                showError("Please select a booking to cancel");
+                return;
+            }
+            
+            String bookingId = (String) bookingsTableModel.getValueAt(selectedRow, 4);
+            listener.accept(bookingId);
+        });
+    }
+    
+    public void setMachineTypeChangeListener(Consumer<String> listener) {
+        machineTypeCombo.addActionListener(e -> {
+            String machineType = (String) machineTypeCombo.getSelectedItem();
+            listener.accept(machineType);
+        });
+    }
+    
+    public void setDateChangeListener(Consumer<String> listener) {
+        dateCombo.addActionListener(e -> {
+            String date = (String) dateCombo.getSelectedItem();
+            listener.accept(date);
+        });
+    }
+    
+    // UI update methods
+    public void updateTimeSlots(List<String> timeSlots) {
+        timeSlotModel.clear();
+        
+        // First add all available time slots
+        for (String slot : timeSlots) {
+            timeSlotModel.addElement(slot);
+        }
+        
+        // If no time slots available, show a message
+        if (timeSlots.isEmpty()) {
+            timeSlotModel.addElement("No available time slots");
+        }
+    }
+    
+    /**
+     * Updates the time slot dropdown with available and unavailable slots
+     * Shows the username of who booked each unavailable slot
+     */
+    public void updateTimeSlotsWithUnavailableAndUser(List<String> availableSlots, List<Map<String, String>> bookedSlotsInfo) {
+        // Clear any existing items
+        timeSlotModel.clear();
+        
+        // First add all available slots
+        if (availableSlots != null && !availableSlots.isEmpty()) {
+            for (String slot : availableSlots) {
+                timeSlotModel.addElement(slot + " (Available)");
+            }
+        }
+        
+        // Then add all booked/unavailable slots with the username
+        if (bookedSlotsInfo != null) {
+            for (Map<String, String> slotInfo : bookedSlotsInfo) {
+                String timeSlot = slotInfo.get("timeSlot");
+                String username = slotInfo.get("username");
+                String status = slotInfo.get("status");
+                
+                if (timeSlot != null) {
+                    if (username != null && !username.isEmpty()) {
+                        timeSlotModel.addElement(timeSlot + " (Booked by " + username + ")");
+                    } else if (status != null && !status.isEmpty()) {
+                        timeSlotModel.addElement(timeSlot + " (" + status + ")");
+                    } else {
+                        timeSlotModel.addElement(timeSlot + " (Unavailable)");
+                    }
+                }
+            }
+        }
+        
+        // If no slots at all, add a message
+        if (timeSlotModel.isEmpty()) {
+            timeSlotModel.addElement("No time slots available");
+        }
+        
+        // Ensure the list is visible
+        timeSlotList.setVisibleRowCount(Math.min(8, timeSlotModel.getSize()));
+        timeSlotList.revalidate();
+        timeSlotList.repaint();
+    }
+    
+    /**
+     * Get the parent scroll pane of the time slot list
+     */
+    private JScrollPane getTimeSlotScrollPaneParent() {
+        Container parent = timeSlotList.getParent();
+        while (parent != null && !(parent instanceof JScrollPane)) {
+            parent = parent.getParent();
+        }
+        return (JScrollPane) parent;
+    }
+    
+    public void clearBookingsTable() {
+        while (bookingsTableModel.getRowCount() > 0) {
+            bookingsTableModel.removeRow(0);
+        }
+    }
+    
+    public void addBooking(String machineType, String date, String timeSlot, String status, String bookingId) {
+        bookingsTableModel.addRow(new Object[]{machineType, date, timeSlot, status, bookingId});
+    }
+    
+    // Navigation
+    public void showLoginPanel() {
+        loginUsernameField.setText("");
+        loginPasswordField.setText("");
+        cardLayout.show(mainPanel, "login");
+    }
+    
+    public void showSignupPanel() {
+        signupUsernameField.setText("");
+        signupPasswordField.setText("");
+        confirmPasswordField.setText("");
+        cardLayout.show(mainPanel, "signup");
+    }
+    
+    public void showDashboardPanel(String username) {
+        JLabel welcomeLabel = (JLabel) ((JPanel)userInfoPanel.getComponent(0)).getComponent(0);
+        welcomeLabel.setText("Welcome, " + username);
+        
+        // Show appropriate view based on username
+        if ("admin".equals(username)) {
+            showOwnerView();
+        } else {
+            showCustomerView();
+        }
+        
+        cardLayout.show(mainPanel, "dashboard");
+    }
+    
+    private void showOwnerView() {
+        // Show owner view using card layout
+        CardLayout cardLayout = (CardLayout) contentPanel.getLayout();
+        cardLayout.show(contentPanel, "owner");
+    }
+    
+    private void showCustomerView() {
+        // Show customer view using card layout
+        CardLayout cardLayout = (CardLayout) contentPanel.getLayout();
+        cardLayout.show(contentPanel, "customer");
+    }
+    
+    // UI Events
+    public void setShowSignupButtonListener(ActionListener listener) {
+        showSignupButton.addActionListener(listener);
+    }
+    
+    public void setBackToLoginButtonListener(ActionListener listener) {
+        backToLoginButton.addActionListener(listener);
+    }
+    
+    // Getters for UI selections
+    public String getMachineTypeSelection() {
+        return (String) machineTypeCombo.getSelectedItem();
+    }
+    
+    public String getDateSelection() {
+        return (String) dateCombo.getSelectedItem();
+    }
+    
+    public String getSelectedTimeSlot() {
+        return timeSlotList.getSelectedValue();
+    }
+    
+    // Helper methods
+    public void showMessage(String title, String message) {
+        JOptionPane.showMessageDialog(this, message, title, JOptionPane.INFORMATION_MESSAGE);
+    }
+    
+    public void showError(String message) {
+        JOptionPane.showMessageDialog(this, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
+    
+    /**
+     * Show a notification to the user when the server is paused
+     */
+    public void showServerPausedMessage() {
+        showMessage("Server Status", "The server is currently paused. Some operations may not be available.");
+    }
+    
+    /**
+     * Show a notification to the user when the server is resumed
+     */
+    public void showServerResumedMessage() {
+        showMessage("Server Status", "The server has resumed normal operation.");
+    }
+    
+    public void displayResults(String text) {
+        resultsArea.setText(text);
+    }
+    
+    // For backward compatibility
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> parseJsonData(String json) {
+        return new com.google.gson.Gson().fromJson(json, Map.class);
+    }
+    
+    private String formatJson(Map<String, Object> data) {
+        return new com.google.gson.GsonBuilder().setPrettyPrinting().create().toJson(data);
+    }
+    
+    public String getSelectedChangeStatus() {
+        return changeStatusCombo != null ? (String) changeStatusCombo.getSelectedItem() : null;
+    }
+    
+    /**
+     * Format the date and time slot properly for display
+     */
+    public String formatDate(String date) {
+        // If date is empty or null, return as is
+        if (date == null || date.isEmpty()) {
+            return date;
+        }
+        
+        // If it's already in the format "April 1 (Tuesday)" add a year
+        if (date.contains("(") && !date.contains(",")) {
+            String[] parts = date.split("\\(", 2);
+            if (parts.length == 2) {
+                String dayMonth = parts[0].trim();
+                String dayOfWeek = "(" + parts[1]; // This includes the closing parenthesis
+                
+                // Add the current year (or 2025 for consistency)
+                return dayMonth + ", 2025 " + dayOfWeek;
+            }
+        }
+        
+        // If it contains comma, it may already be in the right format
+        if (date.contains(",")) {
+            return date;
+        }
+        
+        // If just a month name like "April", add default values
+        if (date.matches("[A-Za-z]+")) {
+            return date + " 1, 2025 (Tuesday)";
+        }
+        
+        return date;
+    }
+    
+    /**
+     * Format the time slot for display
+     */
+    public String formatTimeSlot(String timeSlot) {
+        // If time slot is empty or null, return as is
+        if (timeSlot == null || timeSlot.isEmpty()) {
+            return timeSlot;
+        }
+        
+        // If it contains day information like "1, 2025 (Tuesday) 11:30-12:30 PM"
+        if (timeSlot.contains(")") && timeSlot.contains("-")) {
+            int closeParen = timeSlot.indexOf(')');
+            if (closeParen >= 0 && closeParen + 1 < timeSlot.length()) {
+                // Return just the time part, with proper spacing
+                return timeSlot.substring(closeParen + 1).trim();
+            }
+        }
+        
+        // If already a simple time range format with AM/PM, return as is
+        if (timeSlot.contains("-") && (timeSlot.contains("AM") || timeSlot.contains("PM"))) {
+            return timeSlot;
+        }
+        
+        return timeSlot;
+    }
+    
+    /**
+     * Updates the time slot dropdown with available and unavailable slots
+     * Unavailable slots are marked with a cross mark and made not selectable
+     * This method is kept for backward compatibility
+     */
+    public void updateTimeSlotsWithUnavailable(List<String> availableSlots, List<String> bookedSlots) {
+        // Convert booked slots list to the format needed by the new method
+        List<Map<String, String>> bookedSlotsInfo = new ArrayList<>();
+        
+        for (String slot : bookedSlots) {
+            Map<String, String> slotInfo = new HashMap<>();
+            slotInfo.put("timeSlot", slot);
+            slotInfo.put("username", "Unknown");
+            slotInfo.put("status", "Booked");
+            bookedSlotsInfo.add(slotInfo);
+        }
+        
+        // Call the new method
+        updateTimeSlotsWithUnavailableAndUser(availableSlots, bookedSlotsInfo);
+    }
+    
+    // Return the selected row index from the time slot table
+    public int getSelectedTimeSlotRow() {
+        return timeSlotTable.getSelectedRow();
+    }
+    
+    // Get the time slot ID from a specific row
+    public String getTimeSlotIdFromRow(int row) {
+        if (row >= 0 && row < timeSlotTableModel.getRowCount()) {
+            return (String) timeSlotTableModel.getValueAt(row, 5); // ID is in column 5
+        }
+        return null;
+    }
+    
+    // Admin machine type and date change listeners
+    public void setAdminMachineTypeChangeListener(Consumer<String> listener) {
+        if (adminMachineTypeCombo != null) {
+            adminMachineTypeCombo.addActionListener(e -> {
+                String machineType = (String) adminMachineTypeCombo.getSelectedItem();
+                listener.accept(machineType);
+            });
+        }
+    }
+    
+    public void setAdminDateChangeListener(Consumer<String> listener) {
+        if (adminDateCombo != null) {
+            adminDateCombo.addActionListener(e -> {
+                String date = (String) adminDateCombo.getSelectedItem();
+                listener.accept(date);
+            });
+        }
+    }
+} 
